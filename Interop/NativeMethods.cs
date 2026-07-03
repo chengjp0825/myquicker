@@ -19,9 +19,6 @@ internal static class NativeMethods
     /// <summary>Middle mouse button down message.</summary>
     public const int WM_MBUTTONDOWN = 0x0207;
 
-    /// <summary>Middle mouse button up message.</summary>
-    public const int WM_MBUTTONUP = 0x0208;
-
     /// <summary>Left mouse button down message.</summary>
     public const int WM_LBUTTONDOWN = 0x0201;
 
@@ -98,28 +95,13 @@ internal static class NativeMethods
     public static extern IntPtr GetModuleHandle(string lpModuleName);
 
     // -----------------------------------------------------------------------
-    // 3.2 Coordinate & Focus Control
+    // 3.2 Coordinate Control
     // -----------------------------------------------------------------------
 
     /// <summary>Retrieves the cursor's position in physical screen coordinates.</summary>
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool GetCursorPos(out POINT lpPoint);
-
-    /// <summary>
-    /// Returns a handle to the foreground window (the window with which the
-    /// user is currently working).
-    /// </summary>
-    [DllImport("user32.dll")]
-    public static extern IntPtr GetForegroundWindow();
-
-    /// <summary>
-    /// Puts the thread that created the specified window into the foreground
-    /// and activates the window.
-    /// </summary>
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool SetForegroundWindow(IntPtr hWnd);
 
     // -----------------------------------------------------------------------
     // Window Styles (No-Activate window)
@@ -211,20 +193,4 @@ internal static class NativeMethods
     /// </summary>
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     public static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
-
-    // -----------------------------------------------------------------------
-    // Console attachment (debug logging from a WinExe host)
-    // -----------------------------------------------------------------------
-
-    /// <summary>AttachConsole 参数：挂接到父进程的控制台。</summary>
-    public const int ATTACH_PARENT_PROCESS = -1;
-
-    /// <summary>
-    /// 将调用进程挂接到指定进程的控制台。配合 ATTACH_PARENT_PROCESS 使用，
-    /// 使本 WinExe 的 Console.WriteLine 输出出现在父终端（如 dotnet run 窗口）。
-    /// 无父控制台时返回 false（双击启动等场景），不会抛异常。
-    /// </summary>
-    [DllImport("kernel32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool AttachConsole(int dwProcessId);
 }

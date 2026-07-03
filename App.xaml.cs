@@ -1,7 +1,7 @@
+using System.Diagnostics;
 using System.Drawing;
 using System.Windows;
 using System.Windows.Forms;
-using MyQuicker.Interop;
 using MyQuicker.Services;
 using MyQuicker.UI;
 using Application = System.Windows.Application;
@@ -19,10 +19,6 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        // 挂接到父进程控制台（如 dotnet run 的终端），使 WinExe 的
-        // Console.WriteLine 调试输出直接显示在那里。无父控制台时静默失败。
-        NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
-
         // 全局崩溃兜底：未捕获异常记录日志并拦截，避免常驻托盘进程闪退
         // （StackOverflow/OOM 等不可恢复异常不会触发此事件）。
         this.DispatcherUnhandledException += App_DispatcherUnhandledException;
@@ -67,7 +63,7 @@ public partial class App : Application
         if (_hookService is null)
             return;
 
-        var window = new SettingsWindow(_hookService, new ActionStore());
+        var window = new SettingsWindow(_hookService);
         window.Show();
         window.Activate();
         window.Topmost = true;  // 强行置顶，穿透系统前台锁拦截
@@ -98,8 +94,7 @@ public partial class App : Application
     /// </summary>
     private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
     {
-        Console.WriteLine($"ERROR: 未捕获异常已拦截: {e.Exception}");
-        Console.Out.Flush();
+        Debug.WriteLine($"ERROR: 未捕获异常已拦截: {e.Exception}");
         e.Handled = true;
     }
 }

@@ -11,14 +11,13 @@ namespace MyQuicker.Services;
 /// </summary>
 internal sealed class ActionExecutor
 {
-    private readonly ActionStore _actionStore = new();
     private readonly ScreenshotService _screenshotService = new();
 
     /// <summary>
     /// Returns the current action list, freshly loaded from settings.json
     /// so edits made in the settings window are reflected on the next wake-up.
     /// </summary>
-    public List<ActionItem> GetActions() => _actionStore.GetActions();
+    public List<ActionItem> GetActions() => ActionStore.GetActions();
 
     /// <summary>
     /// Executes the action. The reserved command "sys:snipping" launches the
@@ -36,8 +35,7 @@ internal sealed class ActionExecutor
 
         if (string.IsNullOrWhiteSpace(item.Command))
         {
-            Console.WriteLine("ERROR: 动作命令为空，已忽略。");
-            Console.Out.Flush();
+            Debug.WriteLine("ERROR: 动作命令为空，已忽略。");
             return;
         }
 
@@ -53,8 +51,7 @@ internal sealed class ActionExecutor
         catch (Exception ex)
         {
             // 错填命令/找不到程序：拦截 Win32Exception，避免常驻进程闪退。
-            Console.WriteLine($"ERROR: 启动动作失败 ({item.Command}): {ex.Message}");
-            Console.Out.Flush();
+            Debug.WriteLine($"ERROR: 启动动作失败 ({item.Command}): {ex.Message}");
         }
     }
 }

@@ -80,17 +80,8 @@ public partial class MainWindow : Window
         if (!IsVisible)
             return;
 
-        double x = e.X;
-        double y = e.Y;
-        var source = PresentationSource.FromVisual(this);
-        if (source?.CompositionTarget is not null)
-        {
-            var logical = source.CompositionTarget.TransformFromDevice.Transform(new Point(e.X, e.Y));
-            x = logical.X;
-            y = logical.Y;
-        }
-
-        if (x < Left || x > Left + Width || y < Top || y > Top + Height)
+        var p = ToLogical(e);
+        if (p.X < Left || p.X > Left + Width || p.Y < Top || p.Y > Top + Height)
             Hide();
     }
 
@@ -117,20 +108,22 @@ public partial class MainWindow : Window
         OpenSettingsAction?.Invoke();
     }
 
-    private void PositionAtCursor(POINT e)
+    /// <summary>
+    /// 物理屏幕坐标（POINT，像素）转逻辑坐标（DIP），
+    /// 供 OnAnyMouseDown 与 PositionAtCursor 复用，统一 DPI 处理入口。
+    /// </summary>
+    private Point ToLogical(POINT physical)
     {
-        double x = e.X;
-        double y = e.Y;
-
         var source = PresentationSource.FromVisual(this);
         if (source?.CompositionTarget is not null)
-        {
-            var logical = source.CompositionTarget.TransformFromDevice.Transform(new Point(e.X, e.Y));
-            x = logical.X;
-            y = logical.Y;
-        }
+            return source.CompositionTarget.TransformFromDevice.Transform(new Point(physical.X, physical.Y));
+        return new Point(physical.X, physical.Y);
+    }
 
-        Left = x - Width / 2;
-        Top = y - Height / 2;
+    private void PositionAtCursor(POINT e)
+    {
+        var p = ToLogical(e);
+        Left = p.X - Width / 2;
+        Top = p.Y - Height / 2;
     }
 }

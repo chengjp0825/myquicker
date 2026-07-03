@@ -24,7 +24,7 @@
                 BorderBrush="{StaticResource DividerBrush}">
             <StackPanel>
                 <TextBlock Text="⚙ 设置中心" FontSize="18" FontWeight="Bold"
-                           Margin="20,20,0,30" Foreground="#333" />
+                           Margin="20,20,0,30" Foreground="{StaticResource HeaderForegroundBrush}" />
                 <RadioButton x:Name="NavGeneral" Content="常规"
                              Style="{StaticResource NavRadioButton}" IsChecked="True" />
                 <RadioButton x:Name="NavActions" Content="动作管理"
@@ -43,7 +43,7 @@
             <StackPanel Grid.Row="0"
                         Visibility="{Binding IsChecked, ElementName=NavGeneral, Converter={StaticResource BoolToVis}}">
                 <TextBlock Text="常规设置" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,20" />
-                <TextBlock Text="操作触发参数" FontSize="13" Foreground="#888" Margin="0,0,0,8" />
+                <TextBlock Text="操作触发参数" FontSize="13" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,8" />
                 <ComboBox x:Name="WakeupKeyCombo" FontSize="14" Padding="10,8"
                           Width="320" HorizontalAlignment="Left" SelectedIndex="0">
                     <ComboBoxItem Content="鼠标中键" />

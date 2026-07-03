@@ -11,6 +11,7 @@
     <SolidColorBrush x:Key="AlternatingRowBrush"    Color="#FAFAFA" />
     <SolidColorBrush x:Key="HeaderBackgroundBrush"  Color="#F7F7F7" />
     <SolidColorBrush x:Key="HeaderForegroundBrush"  Color="#333333" />
+    <SolidColorBrush x:Key="SecondaryTextBrush"    Color="#888888" />
     <SolidColorBrush x:Key="NavHoverBrush"          Color="#EBEBEB" />
 
     <!-- ===== 尺寸 / 间距 / 圆角（纯布局，非 JSON） ===== -->

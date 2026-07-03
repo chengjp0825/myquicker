@@ -12,16 +12,14 @@ namespace MyQuicker.UI;
 public partial class SettingsWindow : Window
 {
     private readonly GlobalHookService _hookService;
-    private readonly ActionStore _actionStore;
     private readonly ActionSettings _action;
 
-    internal SettingsWindow(GlobalHookService hookService, ActionStore actionStore)
+    internal SettingsWindow(GlobalHookService hookService)
     {
         InitializeComponent();
         _hookService = hookService;
-        _actionStore = actionStore;
 
-        _action = _actionStore.Load();
+        _action = ActionStore.Load();
         WakeupKeyCombo.SelectedIndex = ToIndex(_action);
         ActionsGrid.ItemsSource = _action.Actions;
     }
@@ -44,7 +42,7 @@ public partial class SettingsWindow : Window
             : NativeMethods.WM_MBUTTONDOWN;
         _action.XButtonData = index switch { 1 => 1, 2 => 2, _ => 0 };
 
-        _actionStore.Save(_action);
+        ActionStore.Save(_action);
         _hookService.UpdateSettings(_action);
         Close();
     }

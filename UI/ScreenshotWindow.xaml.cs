@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -78,8 +79,7 @@ public partial class ScreenshotWindow : Window
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
-        Console.WriteLine("DEBUG: MouseDown Triggered");
-        Console.Out.Flush();
+        Debug.WriteLine("DEBUG: MouseDown Triggered");
         e.Handled = true; // 阻止事件继续下传给底层窗口
 
         EnsureHitTestVisible();
@@ -103,8 +103,7 @@ public partial class ScreenshotWindow : Window
         IntPtr hwnd = new WindowInteropHelper(this).Handle;
         int ex = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
         NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, ex & ~NativeMethods.WS_EX_TRANSPARENT);
-        Console.WriteLine("DEBUG: WS_EX_TRANSPARENT cleared");
-        Console.Out.Flush();
+        Debug.WriteLine("DEBUG: WS_EX_TRANSPARENT cleared");
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -170,16 +169,14 @@ public partial class ScreenshotWindow : Window
 
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
-        Console.WriteLine("DEBUG: MouseUp Triggered");
-        Console.Out.Flush();
+        Debug.WriteLine("DEBUG: MouseUp Triggered");
 
         try
         {
             if (_isPotentialDrag)
             {
                 // 手动拖拽截图：对最终选区矩形（按下点 → 松开点）截图。
-                Console.WriteLine("DEBUG: Mode B - Manual Drag Capture");
-                Console.Out.Flush();
+                Debug.WriteLine("DEBUG: Mode B - Manual Drag Capture");
                 Point p = e.GetPosition(this);
                 double x0 = Math.Min(_mouseDownPoint.X, p.X);
                 double y0 = Math.Min(_mouseDownPoint.Y, p.Y);
@@ -190,15 +187,13 @@ public partial class ScreenshotWindow : Window
             else if (_currentSelection.HasValue)
             {
                 // 智能快照：未拖拽且有红框 → 截红框区域。
-                Console.WriteLine("DEBUG: Mode A - Smart Snapshot");
-                Console.Out.Flush();
+                Debug.WriteLine("DEBUG: Mode A - Smart Snapshot");
                 SettleSelection(_currentSelection.Value);
             }
             else
             {
                 // 空点（无红框且未拖拽）：不操作。
-                Console.WriteLine("DEBUG: Empty Click - No Capture");
-                Console.Out.Flush();
+                Debug.WriteLine("DEBUG: Empty Click - No Capture");
             }
         }
         finally
@@ -240,8 +235,7 @@ public partial class ScreenshotWindow : Window
         int w = Math.Clamp((int)selection.Width, 0, _baseImage.PixelWidth - x);
         int h = Math.Clamp((int)selection.Height, 0, _baseImage.PixelHeight - y);
 
-        Console.WriteLine($"DEBUG: Capture Rect - x={x}, y={y}, w={w}, h={h}");
-        Console.Out.Flush();
+        Debug.WriteLine($"DEBUG: Capture Rect - x={x}, y={y}, w={w}, h={h}");
 
         if (w <= 0 || h <= 0)
             return;
@@ -260,8 +254,7 @@ public partial class ScreenshotWindow : Window
         catch (Exception ex)
         {
             // 剪贴板被其它进程独占（RDP/剪贴板管理器）：不阻断流程，贴图仍可钉出。
-            Console.WriteLine($"ERROR: 写剪贴板失败: {ex.Message}");
-            Console.Out.Flush();
+            Debug.WriteLine($"ERROR: 写剪贴板失败: {ex.Message}");
         }
 
         new PinWindow(crop, _bounds.X + x, _bounds.Y + y).Show();
