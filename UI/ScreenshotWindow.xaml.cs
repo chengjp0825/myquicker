@@ -173,38 +173,44 @@ public partial class ScreenshotWindow : Window
         Console.WriteLine("DEBUG: MouseUp Triggered");
         Console.Out.Flush();
 
-        if (_isPotentialDrag)
+        try
         {
-            // 手动拖拽截图：对最终选区矩形（按下点 → 松开点）截图。
-            Console.WriteLine("DEBUG: Mode B - Manual Drag Capture");
-            Console.Out.Flush();
-            Point p = e.GetPosition(this);
-            double x0 = Math.Min(_mouseDownPoint.X, p.X);
-            double y0 = Math.Min(_mouseDownPoint.Y, p.Y);
-            double w = Math.Abs(p.X - _mouseDownPoint.X);
-            double h = Math.Abs(p.Y - _mouseDownPoint.Y);
-            SettleSelection(new Rect(x0, y0, w, h));
+            if (_isPotentialDrag)
+            {
+                // 手动拖拽截图：对最终选区矩形（按下点 → 松开点）截图。
+                Console.WriteLine("DEBUG: Mode B - Manual Drag Capture");
+                Console.Out.Flush();
+                Point p = e.GetPosition(this);
+                double x0 = Math.Min(_mouseDownPoint.X, p.X);
+                double y0 = Math.Min(_mouseDownPoint.Y, p.Y);
+                double w = Math.Abs(p.X - _mouseDownPoint.X);
+                double h = Math.Abs(p.Y - _mouseDownPoint.Y);
+                SettleSelection(new Rect(x0, y0, w, h));
+            }
+            else if (_currentSelection.HasValue)
+            {
+                // 智能快照：未拖拽且有红框 → 截红框区域。
+                Console.WriteLine("DEBUG: Mode A - Smart Snapshot");
+                Console.Out.Flush();
+                SettleSelection(_currentSelection.Value);
+            }
+            else
+            {
+                // 空点（无红框且未拖拽）：不操作。
+                Console.WriteLine("DEBUG: Empty Click - No Capture");
+                Console.Out.Flush();
+            }
         }
-        else if (_currentSelection.HasValue)
+        finally
         {
-            // 智能快照：未拖拽且有红框 → 截红框区域。
-            Console.WriteLine("DEBUG: Mode A - Smart Snapshot");
-            Console.Out.Flush();
-            SettleSelection(_currentSelection.Value);
-        }
-        else
-        {
-            // 空点（无红框且未拖拽）：不操作。
-            Console.WriteLine("DEBUG: Empty Click - No Capture");
-            Console.Out.Flush();
-        }
+            // 无论是否抛异常，截图罩必须释放鼠标捕获并关闭。
+            if (_isDragging)
+                ReleaseMouseCapture();
+            _isDragging = false;
+            _isPotentialDrag = false;
 
-        if (_isDragging)
-            ReleaseMouseCapture();
-        _isDragging = false;
-        _isPotentialDrag = false;
-
-        Close();   // 无论哪种模式，松开左键后必须关闭截图窗口
+            Close();   // 无论哪种模式，松开左键后必须关闭截图窗口
+        }
         base.OnMouseLeftButtonUp(e);
     }
 
@@ -227,26 +233,38 @@ public partial class ScreenshotWindow : Window
     /// </summary>
     private void SettleSelection(Rect selection)
     {
-        double x0 = selection.X;
-        double y0 = selection.Y;
-        double w = selection.Width;
-        double h = selection.Height;
+        // 严格夹取到 base-image 边界：寻边窗口可能超出虚拟屏、拖拽可能产生负值，
+        // 越界矩形会让 CroppedBitmap 抛 ArgumentException。夹取后只裁可见部分。
+        int x = Math.Clamp((int)selection.X, 0, _baseImage.PixelWidth);
+        int y = Math.Clamp((int)selection.Y, 0, _baseImage.PixelHeight);
+        int w = Math.Clamp((int)selection.Width, 0, _baseImage.PixelWidth - x);
+        int h = Math.Clamp((int)selection.Height, 0, _baseImage.PixelHeight - y);
 
-        Console.WriteLine($"DEBUG: Capture Rect - w={w}, h={h}");
+        Console.WriteLine($"DEBUG: Capture Rect - x={x}, y={y}, w={w}, h={h}");
         Console.Out.Flush();
 
-        if (w > 0 && h > 0)
-        {
-            // 窗口本地坐标与底图像素 1:1，直接裁剪。
-            var crop = new CroppedBitmap(_baseImage, new Int32Rect((int)x0, (int)y0, (int)w, (int)h));
-            crop.Freeze();
+        if (w <= 0 || h <= 0)
+            return;
 
-            // 结算：写剪贴板 + 钉一张贴图常驻窗口。
-            // 选区左上角的绝对屏幕坐标 = 虚拟屏原点 + 窗口本地坐标，让贴图落在截图原位。
-            // 用 Show()（非模态）打开，确保截图罩 Close() 后贴图窗口仍存活。
+        // 窗口本地坐标与底图像素 1:1，直接裁剪。
+        var crop = new CroppedBitmap(_baseImage, new Int32Rect(x, y, w, h));
+        crop.Freeze();
+
+        // 结算：写剪贴板 + 钉一张贴图常驻窗口。
+        // 选区左上角的绝对屏幕坐标 = 虚拟屏原点 + 窗口本地坐标，让贴图落在截图原位。
+        // 用 Show()（非模态）打开，确保截图罩 Close() 后贴图窗口仍存活。
+        try
+        {
             Clipboard.SetImage(crop);
-            new PinWindow(crop, _bounds.X + x0, _bounds.Y + y0).Show();
         }
+        catch (Exception ex)
+        {
+            // 剪贴板被其它进程独占（RDP/剪贴板管理器）：不阻断流程，贴图仍可钉出。
+            Console.WriteLine($"ERROR: 写剪贴板失败: {ex.Message}");
+            Console.Out.Flush();
+        }
+
+        new PinWindow(crop, _bounds.X + x, _bounds.Y + y).Show();
     }
 
     /// <summary>寻边失败时清空选区：清 _currentSelection、撤回镂空与红框。</summary>

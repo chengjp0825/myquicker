@@ -34,11 +34,27 @@ internal sealed class ActionExecutor
             return;
         }
 
-        Process.Start(new ProcessStartInfo
+        if (string.IsNullOrWhiteSpace(item.Command))
         {
-            FileName = item.Command,
-            Arguments = item.Arguments ?? string.Empty,
-            UseShellExecute = true,
-        });
+            Console.WriteLine("ERROR: 动作命令为空，已忽略。");
+            Console.Out.Flush();
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = item.Command,
+                Arguments = item.Arguments ?? string.Empty,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            // 错填命令/找不到程序：拦截 Win32Exception，避免常驻进程闪退。
+            Console.WriteLine($"ERROR: 启动动作失败 ({item.Command}): {ex.Message}");
+            Console.Out.Flush();
+        }
     }
 }

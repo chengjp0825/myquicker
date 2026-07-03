@@ -23,6 +23,10 @@ public partial class App : Application
         // Console.WriteLine 调试输出直接显示在那里。无父控制台时静默失败。
         NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
 
+        // 全局崩溃兜底：未捕获异常记录日志并拦截，避免常驻托盘进程闪退
+        // （StackOverflow/OOM 等不可恢复异常不会触发此事件）。
+        this.DispatcherUnhandledException += App_DispatcherUnhandledException;
+
         base.OnStartup(e);
 
         // 统一配置：加载 settings.json（首次自动迁移旧 appsettings.json 的唤醒键与动作列表）。
@@ -87,5 +91,15 @@ public partial class App : Application
 
         _notifyIcon?.Dispose();
         base.OnExit(e);
+    }
+
+    /// <summary>
+    /// 全局未捕获异常兜底：记录后拦截，保活常驻托盘进程。
+    /// </summary>
+    private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+    {
+        Console.WriteLine($"ERROR: 未捕获异常已拦截: {e.Exception}");
+        Console.Out.Flush();
+        e.Handled = true;
     }
 }

@@ -56,8 +56,12 @@ internal sealed class SettingsManager
     public void Save()
     {
         string settingsPath = Path.Combine(AppContext.BaseDirectory, SettingsFile);
+        string tmpPath = settingsPath + ".tmp";
         string json = JsonSerializer.Serialize(Settings, JsonOptions);
-        File.WriteAllText(settingsPath, json);
+
+        // 原子写：先写临时文件再 File.Move 覆盖，防断电/崩溃中途截断 settings.json。
+        File.WriteAllText(tmpPath, json);
+        File.Move(tmpPath, settingsPath, overwrite: true);
     }
 
     /// <summary>
@@ -79,9 +83,34 @@ internal sealed class SettingsManager
             model.Action.Actions ??= new List<ActionItem>();
             return model;
         }
+        catch (JsonException)
+        {
+            // 脏 JSON：备份坏文件再回退默认值，避免每次启动都读到坏文件。
+            BackupCorruptFile(path);
+            return new SettingsModel();
+        }
         catch
         {
             return new SettingsModel();
+        }
+    }
+
+    /// <summary>
+    /// 把损坏的配置文件重命名为 .bak（同名已存在则覆盖），便于用户找回配置。
+    /// 备份失败不抛：回退默认值仍可运行。
+    /// </summary>
+    private static void BackupCorruptFile(string path)
+    {
+        try
+        {
+            string bakPath = path + ".bak";
+            if (File.Exists(bakPath))
+                File.Delete(bakPath);
+            File.Move(path, bakPath);
+        }
+        catch
+        {
+            // 备份失败忽略。
         }
     }
 

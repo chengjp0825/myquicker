@@ -96,9 +96,15 @@ internal sealed class GlobalHookService : IDisposable
             if (isTrackedDown)
             {
                 var info = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+                POINT pt = info.pt;
 
-                // Any tracked button can dismiss the menu via outside-click.
-                OnAnyMouseDown?.Invoke(this, info.pt);
+                // 原生回调必须极速返回（<100ms），否则 Windows 静默摘钩。
+                // UI 变化与磁盘 IO 一律抛到 UI 线程异步执行；仅“吞键”同步返回。
+                var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                if (dispatcher is not null)
+                {
+                    dispatcher.BeginInvoke(new Action(() => OnAnyMouseDown?.Invoke(this, pt)));
+                }
 
                 // Wake-up interception, driven by the current settings.
                 if (msg == _settings.WakeupMessage)
@@ -111,8 +117,11 @@ internal sealed class GlobalHookService : IDisposable
                             return NativeMethods.CallNextHookEx(_hookId, nCode, wParam, lParam);
                     }
 
-                    OnWakeupClick?.Invoke(this, info.pt);
-                    return (IntPtr)1; // swallow the wake-up click
+                    if (dispatcher is not null)
+                    {
+                        dispatcher.BeginInvoke(new Action(() => OnWakeupClick?.Invoke(this, pt)));
+                    }
+                    return (IntPtr)1; // 同步吞掉唤醒键，立即返回
                 }
             }
         }
