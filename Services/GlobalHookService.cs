@@ -21,7 +21,7 @@ internal sealed class GlobalHookService : IDisposable
     // when it tries to invoke the callback through a stale pointer.
     private NativeMethods.LowLevelMouseProc? _hookProc;
     private IntPtr _hookId = IntPtr.Zero;
-    private AppSettings _settings = new();
+    private ActionSettings _settings = new();
 
     /// <summary>
     /// Raised on the UI thread when the configured wake-up button is
@@ -40,9 +40,9 @@ internal sealed class GlobalHookService : IDisposable
     /// <summary>
     /// Swaps in new hotkey settings. Takes effect on the next hook callback.
     /// </summary>
-    public void UpdateSettings(AppSettings settings)
+    public void UpdateSettings(ActionSettings settings)
     {
-        _settings = settings ?? new AppSettings();
+        _settings = settings ?? new ActionSettings();
     }
 
     /// <summary>

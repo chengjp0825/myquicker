@@ -12,21 +12,21 @@ namespace MyQuicker.UI;
 public partial class SettingsWindow : Window
 {
     private readonly GlobalHookService _hookService;
-    private readonly SettingsManager _settingsManager;
-    private readonly AppSettings _settings;
+    private readonly ActionStore _actionStore;
+    private readonly ActionSettings _action;
 
-    internal SettingsWindow(GlobalHookService hookService, SettingsManager settingsManager)
+    internal SettingsWindow(GlobalHookService hookService, ActionStore actionStore)
     {
         InitializeComponent();
         _hookService = hookService;
-        _settingsManager = settingsManager;
+        _actionStore = actionStore;
 
-        _settings = _settingsManager.Load();
-        WakeupKeyCombo.SelectedIndex = ToIndex(_settings);
-        ActionsGrid.ItemsSource = _settings.Actions;
+        _action = _actionStore.Load();
+        WakeupKeyCombo.SelectedIndex = ToIndex(_action);
+        ActionsGrid.ItemsSource = _action.Actions;
     }
 
-    private static int ToIndex(AppSettings s)
+    private static int ToIndex(ActionSettings s)
     {
         if (s.WakeupMessage == NativeMethods.WM_XBUTTONDOWN)
             return s.XButtonData == 2 ? 2 : 1;
@@ -39,13 +39,13 @@ public partial class SettingsWindow : Window
         ActionsGrid.CommitEdit(System.Windows.Controls.DataGridEditingUnit.Cell, true);
 
         int index = WakeupKeyCombo.SelectedIndex;
-        _settings.WakeupMessage = index == 1 || index == 2
+        _action.WakeupMessage = index == 1 || index == 2
             ? NativeMethods.WM_XBUTTONDOWN
             : NativeMethods.WM_MBUTTONDOWN;
-        _settings.XButtonData = index switch { 1 => 1, 2 => 2, _ => 0 };
+        _action.XButtonData = index switch { 1 => 1, 2 => 2, _ => 0 };
 
-        _settingsManager.Save(_settings);
-        _hookService.UpdateSettings(_settings);
+        _actionStore.Save(_action);
+        _hookService.UpdateSettings(_action);
         Close();
     }
 }

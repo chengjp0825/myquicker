@@ -2,7 +2,6 @@ using System.Drawing;
 using System.Windows;
 using System.Windows.Forms;
 using MyQuicker.Interop;
-using MyQuicker.Models;
 using MyQuicker.Services;
 using MyQuicker.UI;
 using Application = System.Windows.Application;
@@ -17,7 +16,6 @@ public partial class App : Application
     private GlobalHookService? _hookService;
     private MainWindow? _mainWindow;
     private NotifyIcon? _notifyIcon;
-    private SettingsManager? _settingsManager;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -27,11 +25,11 @@ public partial class App : Application
 
         base.OnStartup(e);
 
-        _settingsManager = new SettingsManager();
-        AppSettings settings = _settingsManager.Load();
+        // 统一配置：加载 settings.json（首次自动迁移旧 appsettings.json 的唤醒键与动作列表）。
+        SettingsManager.Instance.Load();
 
         _hookService = new GlobalHookService();
-        _hookService.UpdateSettings(settings);
+        _hookService.UpdateSettings(SettingsManager.Instance.Settings.Action);
 
         _mainWindow = new MainWindow();
         _mainWindow.OpenSettingsAction = OpenSettings;
@@ -62,10 +60,10 @@ public partial class App : Application
 
     private void OpenSettings()
     {
-        if (_hookService is null || _settingsManager is null)
+        if (_hookService is null)
             return;
 
-        var window = new SettingsWindow(_hookService, _settingsManager);
+        var window = new SettingsWindow(_hookService, new ActionStore());
         window.Show();
         window.Activate();
         window.Topmost = true;  // 强行置顶，穿透系统前台锁拦截
