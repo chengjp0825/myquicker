@@ -9,8 +9,6 @@
         ShowInTaskbar="True"
         ResizeMode="CanResize"
         WindowStartupLocation="Manual"
-        MinWidth="40"
-        MinHeight="40"
         SnapsToDevicePixels="True"
         RenderOptions.BitmapScalingMode="HighQuality"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
@@ -26,7 +24,6 @@
     <Grid x:Name="RootGrid">
         <Border x:Name="PinBorder"
                 Background="Transparent"
-                BorderBrush="Gray"
                 BorderThickness="0"
                 IsHitTestVisible="False" />
 
@@ -46,7 +43,6 @@
             <Image.Effect>
                 <DropShadowEffect x:Name="ShadowEffect"
                                   Color="Black"
-                                  BlurRadius="14"
                                   ShadowDepth="5"
                                   Opacity="0.5"
                                   Direction="315" />

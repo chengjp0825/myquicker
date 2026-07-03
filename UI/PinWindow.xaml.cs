@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
+using MyQuicker.Services;
 using Clipboard = System.Windows.Clipboard;
 using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
 
@@ -18,22 +19,33 @@ public partial class PinWindow : Window
 {
     private readonly BitmapSource _source;
 
-    // 旋转累计角度（每次 +90）与水平镜像开关
+    // 旋转累计角度（每次 +RotationStepDegrees）与水平镜像开关
     private int _rotationStep;
     private bool _mirrored;
+
+    // 每次旋转的步进角度（度），来自统一配置
+    private readonly double _rotationStepDegrees = SettingsManager.Instance.Settings.Pin.RotationStepDegrees;
 
     // 原始物理像素尺寸（重置大小用）
     private readonly double _naturalWidth;
     private readonly double _naturalHeight;
 
-    /// <summary>当前旋转角度（0/90/180/270）。</summary>
-    private double RotationAngle => (_rotationStep % 4) * 90;
+    /// <summary>当前旋转角度（0/90/180/270）。步进值取自 SettingsModel.Pin.RotationStepDegrees。</summary>
+    private double RotationAngle => (_rotationStep % 4) * _rotationStepDegrees;
 
     /// <param name="screenX">贴图左上角目标屏幕横坐标（物理像素，来自截图结算）。</param>
     /// <param name="screenY">贴图左上角目标屏幕纵坐标（物理像素，来自截图结算）。</param>
     public PinWindow(BitmapSource source, double screenX, double screenY)
     {
         InitializeComponent();
+
+        // 关键视觉参数从统一配置注入（Per SPEC 重构 Step 3）。
+        var pin = SettingsManager.Instance.Settings.Pin;
+        MinWidth = pin.MinWidth;
+        MinHeight = pin.MinHeight;
+        PinBorder.BorderBrush = BrushHelper.ToBrush(pin.BorderColor);
+        ShadowEffect.BlurRadius = pin.ShadowBlurRadius;
+        Opacity = pin.DefaultOpacity;
 
         _source = source;
         _naturalWidth = source.PixelWidth;

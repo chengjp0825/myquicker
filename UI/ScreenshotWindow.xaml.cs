@@ -4,8 +4,10 @@ using System.Text;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using MyQuicker.Interop;
+using MyQuicker.Services;
 using static MyQuicker.Interop.NativeMethods;
 using Cursors = System.Windows.Input.Cursors;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
@@ -34,8 +36,8 @@ public partial class ScreenshotWindow : Window
     /// </summary>
     private Rect? _currentSelection;
 
-    /// <summary>判定"点击 vs 拖拽"的位移阈值（DIP）。超过即升级为拖拽。</summary>
-    private const double DragThreshold = 5.0;
+    /// <summary>判定"点击 vs 拖拽"的位移阈值（DIP）。超过即升级为拖拽。值取自 SettingsModel.Snipping.DragThreshold。</summary>
+    private readonly double DragThreshold = SettingsManager.Instance.Settings.Snipping.DragThreshold;
 
     public ScreenshotWindow(BitmapSource source, Rectangle bounds)
     {
@@ -52,6 +54,13 @@ public partial class ScreenshotWindow : Window
 
         BackgroundImage.Source = source;
         ScreenGeometry.Rect = new Rect(0, 0, bounds.Width, bounds.Height);
+
+        // 关键视觉参数从统一配置注入（Per SPEC 重构 Step 3）。
+        var snipping = SettingsManager.Instance.Settings.Snipping;
+        Background = BrushHelper.ToBrush(snipping.OverlayBackground);
+        MaskPath.Fill = BrushHelper.ToBrush(snipping.MaskColor);
+        HighlightBorder.BorderBrush = BrushHelper.ToBrush(snipping.BorderColor);
+        HighlightBorder.BorderThickness = new Thickness(snipping.BorderThickness);
     }
 
     protected override void OnPreviewKeyDown(KeyEventArgs e)

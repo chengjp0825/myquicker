@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
+using System.Windows.Media;
 using MyQuicker.Interop;
 using MyQuicker.Models;
 using MyQuicker.Services;
@@ -28,6 +29,16 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         _executor = new ActionExecutor();
+
+        // 关键视觉参数从统一配置注入（Per SPEC 重构 Step 3）。
+        // 按钮背景色经 DynamicResource 注入样式（MenuButtonStyle 引用 MenuButtonBackgroundBrush/...Hover）。
+        var menu = SettingsManager.Instance.Settings.Menu;
+        Width = menu.Width;
+        Height = menu.Height;
+        RootBorder.Background = BrushHelper.ToBrush(menu.Background);
+        RootBorder.CornerRadius = new CornerRadius(menu.CornerRadius);
+        Resources["MenuButtonBackgroundBrush"] = BrushHelper.ToBrush(menu.ButtonBackground);
+        Resources["MenuButtonHoverBackgroundBrush"] = BrushHelper.ToBrush(menu.ButtonHoverBackground);
     }
 
     /// <summary>

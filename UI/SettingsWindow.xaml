@@ -9,88 +9,19 @@
         WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
-
-        <!-- Modern sidebar nav item: no radio circle, menu-item look -->
-        <Style x:Key="NavRadioButton" TargetType="RadioButton">
-            <Setter Property="GroupName" Value="Nav" />
-            <Setter Property="Height" Value="40" />
-            <Setter Property="Foreground" Value="#333333" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="RadioButton">
-                        <Grid>
-                            <Border x:Name="Indicator"
-                                    Width="3"
-                                    HorizontalAlignment="Left"
-                                    Background="#0066CC"
-                                    Opacity="0" />
-                            <Border x:Name="Bd" Background="Transparent" Padding="20,0">
-                                <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
-                            </Border>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#EBEBEB" />
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#FFFFFF" />
-                                <Setter Property="Foreground" Value="#0066CC" />
-                                <Setter TargetName="Indicator" Property="Opacity" Value="1" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Flat blue action button -->
-        <Style x:Key="ActionButton" TargetType="Button">
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="Background" Value="#0066CC" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="Padding" Value="20,8" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd"
-                                Background="{TemplateBinding Background}"
-                                CornerRadius="6"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#0055AA" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Bold, light DataGrid column headers -->
-        <Style TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="#F7F7F7" />
-            <Setter Property="Foreground" Value="#333333" />
-            <Setter Property="FontWeight" Value="Bold" />
-            <Setter Property="Padding" Value="10,0" />
-            <Setter Property="BorderBrush" Value="#EAEAEA" />
-            <Setter Property="BorderThickness" Value="0,0,1,1" />
-        </Style>
     </Window.Resources>
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="160" />
+            <ColumnDefinition Width="{StaticResource SidebarWidth}" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
         <!-- Sidebar -->
-        <Border Grid.Column="0" Background="#F7F7F7" BorderThickness="0,0,1,0" BorderBrush="#EAEAEA">
+        <Border Grid.Column="0"
+                Background="{StaticResource SidebarBackgroundBrush}"
+                BorderThickness="0,0,1,0"
+                BorderBrush="{StaticResource DividerBrush}">
             <StackPanel>
                 <TextBlock Text="⚙ 设置中心" FontSize="18" FontWeight="Bold"
                            Margin="20,20,0,30" Foreground="#333" />
@@ -136,12 +67,12 @@
                           CanUserResizeColumns="True"
                           HeadersVisibility="Column"
                           GridLinesVisibility="All"
-                          HorizontalGridLinesBrush="#EFEFEF"
-                          VerticalGridLinesBrush="#EFEFEF"
-                          BorderBrush="#EAEAEA"
+                          HorizontalGridLinesBrush="{StaticResource GridLinesBrush}"
+                          VerticalGridLinesBrush="{StaticResource GridLinesBrush}"
+                          BorderBrush="{StaticResource DividerBrush}"
                           BorderThickness="1"
                           RowBackground="White"
-                          AlternatingRowBackground="#FAFAFA"
+                          AlternatingRowBackground="{StaticResource AlternatingRowBrush}"
                           AlternationCount="2"
                           ColumnHeaderHeight="34">
                     <DataGrid.Columns>
