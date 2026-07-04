@@ -84,16 +84,14 @@
                 </ScrollViewer>
 
                 <!-- 2. 底部工具区 -->
-                <Border Grid.Row="1" Margin="4,12,4,0" Padding="0,8,0,0"
-                        BorderBrush="#33FFFFFF" BorderThickness="0,1,0,0">
+                <Border Grid.Row="1" Margin="5,10,5,0" Padding="0,8,0,0"
+                        BorderBrush="#18FFFFFF" BorderThickness="0,1,0,0">
                     <Button x:Name="SettingsButton"
                             Click="SettingsButton_Click"
-                            Style="{StaticResource MenuButtonStyle}"
+                            Style="{StaticResource MenuSettingsButtonStyle}"
                             HorizontalAlignment="Right"
-                            Width="28" Height="28"
-                            Padding="0"
                             ToolTip="设置">
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" FontSize="13" />
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" FontSize="12" />
                     </Button>
                 </Border>
             </Grid>
