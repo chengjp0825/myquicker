@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using MyQuicker.Interop;
 using MyQuicker.Models;
 using MyQuicker.Services;
@@ -31,6 +32,10 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        // 为唤醒动画准备缩放变换（默认 1,1）
+        RootBorder.RenderTransformOrigin = new Point(0.5, 0.5);
+        RootBorder.RenderTransform = new ScaleTransform(1, 1);
 
         _executor = new ActionExecutor();
 
@@ -96,13 +101,50 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 唤醒：光标居中定位 + 显透明度 + 重申置顶不抢焦。零 IO、零 Show（docs/03 §7.3）。
+    /// 唤醒：光标居中定位 + 淡入缩放动画 + 重申置顶不抢焦。零 IO、零 Show（docs/03 §7.3）。
     /// </summary>
     private void WakeUp(POINT e)
     {
         PositionAtCursor(e); // 先定位再显，避免可见后跳位
-        Opacity = 1;
+
+        // 清除可能残留的动画，确保每次从初始状态开始
+        BeginAnimation(OpacityProperty, null);
+        var scale = (ScaleTransform)RootBorder.RenderTransform;
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+
+        scale.ScaleX = 0.95;
+        scale.ScaleY = 0.95;
+        Opacity = 0;
         _isAwake = true;
+
+        var storyboard = new Storyboard();
+
+        var opacityAnimation = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150))
+        {
+            EasingFunction = new QuarticEase { EasingMode = EasingMode.EaseOut }
+        };
+        Storyboard.SetTarget(opacityAnimation, this);
+        Storyboard.SetTargetProperty(opacityAnimation, new PropertyPath(OpacityProperty));
+        storyboard.Children.Add(opacityAnimation);
+
+        var scaleXAnimation = new DoubleAnimation(0.95, 1, TimeSpan.FromMilliseconds(150))
+        {
+            EasingFunction = new QuarticEase { EasingMode = EasingMode.EaseOut }
+        };
+        Storyboard.SetTarget(scaleXAnimation, RootBorder);
+        Storyboard.SetTargetProperty(scaleXAnimation, new PropertyPath("RenderTransform.ScaleX"));
+        storyboard.Children.Add(scaleXAnimation);
+
+        var scaleYAnimation = new DoubleAnimation(0.95, 1, TimeSpan.FromMilliseconds(150))
+        {
+            EasingFunction = new QuarticEase { EasingMode = EasingMode.EaseOut }
+        };
+        Storyboard.SetTarget(scaleYAnimation, RootBorder);
+        Storyboard.SetTargetProperty(scaleYAnimation, new PropertyPath("RenderTransform.ScaleY"));
+        storyboard.Children.Add(scaleYAnimation);
+
+        storyboard.Begin();
 
         var hwnd = new WindowInteropHelper(this).Handle;
         NativeMethods.SetWindowPos(hwnd, NativeMethods.HWND_TOPMOST, 0, 0, 0, 0,
@@ -114,6 +156,11 @@ public partial class MainWindow : Window
     /// </summary>
     internal void Sleep()
     {
+        BeginAnimation(OpacityProperty, null);
+        var scale = (ScaleTransform)RootBorder.RenderTransform;
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+
         Opacity = 0;
         Left = -9999;
         Top = -9999;
