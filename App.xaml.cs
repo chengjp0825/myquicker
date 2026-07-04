@@ -63,7 +63,7 @@ public partial class App : Application
         if (_hookService is null)
             return;
 
-        var window = new SettingsWindow(_hookService);
+        var window = new SettingsWindow(_hookService, _mainWindow);
         window.Show();
         window.Activate();
         window.Topmost = true;  // 强行置顶，穿透系统前台锁拦截

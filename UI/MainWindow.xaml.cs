@@ -30,13 +30,21 @@ public partial class MainWindow : Window
 
         _executor = new ActionExecutor();
 
-        // 关键视觉参数从统一配置注入（Per SPEC 重构 Step 3）。
-        // 按钮背景色经 DynamicResource 注入样式（MenuButtonStyle 引用 MenuButtonBackgroundBrush/...Hover）。
-        var menu = SettingsManager.Instance.Settings.Menu;
+        // 关键视觉参数从统一配置注入；ApplyMenuSettings 同时供 SettingsWindow 应用后即时刷新。
+        ApplyMenuSettings(SettingsManager.Instance.Settings.Menu);
+    }
+
+    /// <summary>
+    /// 把 Menu 组参数刷到当前窗口（尺寸/背景/圆角/按钮色）。
+    /// 构造时与设置页“应用设置”后共用此路径，使 Menu 改动无需重启即可生效。
+    /// </summary>
+    internal void ApplyMenuSettings(MenuSettings menu)
+    {
         Width = menu.Width;
         Height = menu.Height;
         RootBorder.Background = BrushHelper.ToBrush(menu.Background);
         RootBorder.CornerRadius = new CornerRadius(menu.CornerRadius);
+        // 按钮背景色经 DynamicResource 注入样式（MenuButtonStyle 引用 MenuButtonBackgroundBrush/...Hover）。
         Resources["MenuButtonBackgroundBrush"] = BrushHelper.ToBrush(menu.ButtonBackground);
         Resources["MenuButtonHoverBackgroundBrush"] = BrushHelper.ToBrush(menu.ButtonHoverBackground);
     }

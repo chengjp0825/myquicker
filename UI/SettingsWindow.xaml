@@ -29,6 +29,12 @@
                              Style="{StaticResource NavRadioButton}" IsChecked="True" />
                 <RadioButton x:Name="NavActions" Content="动作管理"
                              Style="{StaticResource NavRadioButton}" />
+                <RadioButton x:Name="NavSnipping" Content="截屏"
+                             Style="{StaticResource NavRadioButton}" />
+                <RadioButton x:Name="NavMenu" Content="菜单"
+                             Style="{StaticResource NavRadioButton}" />
+                <RadioButton x:Name="NavPin" Content="贴图"
+                             Style="{StaticResource NavRadioButton}" />
             </StackPanel>
         </Border>
 
@@ -82,6 +88,121 @@
                     </DataGrid.Columns>
                 </DataGrid>
             </Grid>
+
+            <!-- Page 3: Snipping -->
+            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding IsChecked, ElementName=NavSnipping, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <TextBlock Text="截屏" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,16" />
+                    <TextBlock Text="颜色用 #AARRGGBB 或命名色（如 Black / Gray）" FontSize="12"
+                               Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,12" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Width="150" VerticalAlignment="Center" Text="点击/拖拽阈值 (DIP)" />
+                        <TextBox x:Name="SnippingDragThresholdBox" Width="80" Padding="6,4" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Width="150" VerticalAlignment="Center" Text="暗罩颜色" />
+                        <TextBox x:Name="SnippingMaskColorBox" Width="120" Padding="6,4" />
+                        <Border x:Name="SnippingMaskColorPreview" Width="40" Height="22" Margin="8,0,0,0"
+                                BorderBrush="#CCC" BorderThickness="1" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Width="150" VerticalAlignment="Center" Text="选区红框颜色" />
+                        <TextBox x:Name="SnippingBorderColorBox" Width="120" Padding="6,4" />
+                        <Border x:Name="SnippingBorderColorPreview" Width="40" Height="22" Margin="8,0,0,0"
+                                BorderBrush="#CCC" BorderThickness="1" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Width="150" VerticalAlignment="Center" Text="红框厚度 (px)" />
+                        <TextBox x:Name="SnippingBorderThicknessBox" Width="80" Padding="6,4" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Width="150" VerticalAlignment="Center" Text="覆盖层背景色" />
+                        <TextBox x:Name="SnippingOverlayBgBox" Width="120" Padding="6,4" />
+                        <Border x:Name="SnippingOverlayBgPreview" Width="40" Height="22" Margin="8,0,0,0"
+                                BorderBrush="#CCC" BorderThickness="1" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Page 4: Menu -->
+            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding IsChecked, ElementName=NavMenu, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <TextBlock Text="菜单" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,16" />
+                    <TextBlock Text="应用后即时刷新到唤醒菜单，无需重启。" FontSize="12"
+                               Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,12" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Width="150" VerticalAlignment="Center" Text="窗口宽度 (DIP)" />
+                        <TextBox x:Name="MenuWidthBox" Width="80" Padding="6,4" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Width="150" VerticalAlignment="Center" Text="窗口高度 (DIP)" />
+                        <TextBox x:Name="MenuHeightBox" Width="80" Padding="6,4" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Width="150" VerticalAlignment="Center" Text="外层背景色" />
+                        <TextBox x:Name="MenuBackgroundBox" Width="120" Padding="6,4" />
+                        <Border x:Name="MenuBackgroundPreview" Width="40" Height="22" Margin="8,0,0,0"
+                                BorderBrush="#CCC" BorderThickness="1" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Width="150" VerticalAlignment="Center" Text="圆角半径 (px)" />
+                        <TextBox x:Name="MenuCornerRadiusBox" Width="80" Padding="6,4" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Width="150" VerticalAlignment="Center" Text="按钮背景色" />
+                        <TextBox x:Name="MenuButtonBgBox" Width="120" Padding="6,4" />
+                        <Border x:Name="MenuButtonBgPreview" Width="40" Height="22" Margin="8,0,0,0"
+                                BorderBrush="#CCC" BorderThickness="1" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Width="150" VerticalAlignment="Center" Text="按钮悬停色" />
+                        <TextBox x:Name="MenuButtonHoverBgBox" Width="120" Padding="6,4" />
+                        <Border x:Name="MenuButtonHoverBgPreview" Width="40" Height="22" Margin="8,0,0,0"
+                                BorderBrush="#CCC" BorderThickness="1" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Page 5: Pin -->
+            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding IsChecked, ElementName=NavPin, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <TextBlock Text="贴图" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,16" />
+                    <TextBlock Text="下次钉图时生效。" FontSize="12"
+                               Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,12" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Width="150" VerticalAlignment="Center" Text="最小宽度 (px)" />
+                        <TextBox x:Name="PinMinWidthBox" Width="80" Padding="6,4" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Width="150" VerticalAlignment="Center" Text="最小高度 (px)" />
+                        <TextBox x:Name="PinMinHeightBox" Width="80" Padding="6,4" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Width="150" VerticalAlignment="Center" Text="边界颜色" />
+                        <TextBox x:Name="PinBorderColorBox" Width="120" Padding="6,4" />
+                        <Border x:Name="PinBorderColorPreview" Width="40" Height="22" Margin="8,0,0,0"
+                                BorderBrush="#CCC" BorderThickness="1" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Width="150" VerticalAlignment="Center" Text="阴影模糊半径" />
+                        <TextBox x:Name="PinShadowBlurBox" Width="80" Padding="6,4" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Width="150" VerticalAlignment="Center" Text="旋转步进 (度)" />
+                        <TextBox x:Name="PinRotationStepBox" Width="80" Padding="6,4" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Width="150" VerticalAlignment="Center" Text="默认不透明度 (0-1)" />
+                        <TextBox x:Name="PinDefaultOpacityBox" Width="80" Padding="6,4" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
 
             <!-- Apply button -->
             <Button Grid.Row="1" Content="应用设置" Style="{StaticResource ActionButton}"
