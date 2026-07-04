@@ -140,3 +140,29 @@ ESC / 右键取消关闭。
 - **坐标空间**：视图空间（WYSIWYG）—— 批注绘制在 Canvas 局部坐标，导出即所见。
 
 > `ApplyWindowSize` 改动：原 `PinImage.Margin = border` 改为 `ContentRoot.Margin = border`，`PinImage` 改 `Margin=0`。旋转 / 边框外扩逻辑不变。
+
+## 7. MainWindow 极速唤醒渲染规范
+
+参考顶级效率工具（如 Quicker）的底层设计，MainWindow 采用「单例预热 + 屏幕外瞬移」机制，规避 DWM 表面重新分配与 XAML 首次渲染延迟，使唤醒到可见 < 1 帧。
+
+### 7.1 单例与生命周期
+- MainWindow 为**全局单例**，`App.OnStartup` 实例化后常驻整个进程生命周期，**禁止运行期间销毁重建**（禁止 `Close()` / 重新 `new`）。
+- 唤醒 / 隐藏只切换物理坐标与透明度，窗口 HWND 与可视树恒存在。
+
+### 7.2 预热（Pre-warm）
+- `App.OnStartup` 中尽早实例化 MainWindow，设 `WindowStartupLocation=Manual`、`Left=Top=-9999`、`Opacity=0`，随即调用一次 `Show()`。
+- 强迫 WPF 在后台完成 XAML 解析、模板绑定、GPU 材质编译；窗口已渲染在内存，用户不可见。
+
+### 7.3 显隐规则（禁用 Show / Hide / Visibility）
+- **禁止** `Window.Show()` / `Window.Hide()` / 切换 `Visibility` —— 触发 DWM 重新分配表面，引入可感知延迟。
+- **隐藏 `Sleep()`**：`Opacity=0` + `Left=Top=-9999`（丢出屏幕外）。
+- **唤醒 `WakeUp(POINT)`**：
+  1. `ToLogical(POINT)` 取光标逻辑坐标；
+  2. 按 `ActualWidth` / `ActualHeight` 计算居中，赋值 `Left` / `Top`；
+  3. `Opacity=1`；
+  4. `SetWindowPos(HWND_TOPMOST, SWP_NOACTIVATE)` 重申置顶不抢焦。
+- 显隐状态由 `_isAwake` 布尔跟踪，**不依赖 `Window.IsVisible`**（窗口预热后始终 `IsVisible=true`）。
+
+### 7.4 唤醒链路零 IO
+- `WakeUp` 路径**禁止任何磁盘 IO**（不读 `settings.json`）。
+- Action 数据在 `App.OnStartup` 加载到内存缓存，`SettingsWindow` 保存时刷新缓存；唤醒仅改变坐标与透明度。

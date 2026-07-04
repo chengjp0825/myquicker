@@ -196,4 +196,28 @@ internal static class NativeMethods
     /// </summary>
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     public static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+
+    // -----------------------------------------------------------------------
+    // Window Position (topmost without activation — 极速唤醒, docs/03 §7)
+    // -----------------------------------------------------------------------
+
+    /// <summary>SetWindowPos hWndInsertAfter: place above all non-topmost windows.</summary>
+    public static readonly IntPtr HWND_TOPMOST = new(-1);
+
+    /// <summary>Retains current size (cx/cy ignored).</summary>
+    public const uint SWP_NOSIZE = 0x0001;
+
+    /// <summary>Retains current position (X/Y ignored).</summary>
+    public const uint SWP_NOMOVE = 0x0002;
+
+    /// <summary>Does not activate the window (pairs with WS_EX_NOACTIVATE).</summary>
+    public const uint SWP_NOACTIVATE = 0x0010;
+
+    /// <summary>
+    /// Changes a window's size, position, and z order. Used at wake-up to
+    /// re-assert topmost without stealing focus (SWP_NOACTIVATE).
+    /// </summary>
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 }

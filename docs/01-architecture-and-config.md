@@ -18,7 +18,7 @@
 - `ScreenshotService` —— 多屏截图采集 + GDI 回收。详见 `docs/02-interaction-engine.md`。
 - `ActionExecutor` —— 动作分发，含 `sys:` 协议路由；空命令校验 + `Process.Start` try/catch。容错细节见 `docs/02-interaction-engine.md`「崩溃兜底」。
 - `SettingsManager` —— 全局单例（`Instance`），统一配置中心。详见下文「配置系统」。
-- `ActionStore` —— 静态门面（`internal static class`），封装唤醒键与动作列表读写，全部委托 `SettingsManager.Instance`，自身不做 IO。供 `App` / `SettingsWindow` / `ActionExecutor` / `MainWindow` 使用。
+- `ActionStore` —— 静态门面（`internal static class`），持动作列表与唤醒键的**内存缓存**：`Init` 启动载入（一次 IO）、`GetActions` 唤醒零 IO、`LoadForEdit` 深拷贝供编辑隔离、`UpdateCache` 保存时同步。供 `App` / `SettingsWindow` / `ActionExecutor` / `MainWindow` 使用。
 
 ### `/UI` —— WPF 视图（XAML + code-behind）
 `MainWindow` / `SettingsWindow` / `ScreenshotWindow` / `PinWindow` / `BrushHelper`（JSON 颜色串 `#AARRGGBB` / 命名色转 WPF `Brush` 的静态转换器），详见 `docs/03-ui-and-styling.md`。
@@ -27,7 +27,8 @@
 - `ActionItem` —— 实现 `INotifyPropertyChanged` 供 DataGrid 双向绑定。
 - `SettingsModel` —— 多层级 POCO，默认值对齐重构前硬编码：
   - `ActionSettings`：含 `public const int WAKEUP_CIRCLE_GESTURE = -1;`（纯轨迹画圈唤醒的 `WakeupMessage` 哨兵值）+ `XButtonData`。
-  - `SnippingSettings` / `MenuSettings` / `PinSettings`：各组颜色 / 尺寸 / 阈值 / 阴影模糊半径 / 旋转步进等。
+  - `SnippingSettings` / `MenuSettings`：各组颜色 / 尺寸 / 阈值。
+  - `PinSettings`：颜色 / 尺寸 / 阴影模糊半径 / 旋转步进 / `DefaultShowBorder`（默认显示边界）/ `DefaultAnnotationMode`（默认批注模式）。
 
 ### `/Resources` —— 共享 XAML 资源
 `ThemeStyles.xaml` 公共主题资源字典，由 `App.xaml` 合并，各窗口以 `StaticResource` 引用。详见 `docs/03-ui-and-styling.md`。
@@ -40,15 +41,18 @@
 - **坏文件兜底**：`ReadSettings` 捕获 `JsonException` 时把坏文件 `File.Move` 为 `settings.json.bak` 再回退默认值；其他异常回退默认值。
 - **原子写**：`Save()` 先写 `settings.json.tmp` 再 `File.Move(overwrite:true)` 覆盖，防断电/崩溃截断。
 - **同步 IO**（`File.ReadAllText` / `File.WriteAllText`），不引入异步以保调用时序。
-- **生命周期**：`App.OnStartup` 加载；保存由 `SettingsWindow` 应用设置触发（`App.OnExit` 不保存——所有变更经 `ActionStore.Save` 即时落盘）。
-- **热重载 / 编辑隔离**：`Load()` 每次重读磁盘，保留唤醒热重载与 `SettingsWindow` 编辑隔离（未保存编辑持有独立对象引用，不受他处 `Load` 影响）。
+- **生命周期**：`App.OnStartup` 加载一次；保存由 `SettingsWindow` 应用设置触发（`App.OnExit` 不保存）。
+- **编辑隔离**：`ActionStore.LoadForEdit` 返回内存缓存的深拷贝，`SettingsWindow` 编辑该拷贝，不受他处影响；`Load()` 仅启动时调用一次。
 
-### `ActionStore` —— 静态门面
-`internal static class`，封装唤醒键与动作列表读写，全部委托 `SettingsManager.Instance`，自身不做 IO。供 `App` / `SettingsWindow` / `ActionExecutor` / `MainWindow` 使用。
-- 配置热重载：`MainWindow` 每次唤醒都经 `ActionStore` → `SettingsManager.Instance.Load()` 从磁盘重新加载动作列表，编辑 `settings.json` 无需重启。
+### `ActionStore` —— 静态门面（内存缓存）
+`internal static class`，持动作列表与唤醒键的内存缓存，唤醒路径零 IO（极速唤醒渲染规范 docs/03 §7.4）。供 `App` / `SettingsWindow` / `ActionExecutor` / `MainWindow` 使用。
+- `Init(action)`：`App.OnStartup` 一次性载入缓存。
+- `GetActions()`：返回缓存列表，供 `MainWindow` 唤醒绑定（零 IO）。
+- `LoadForEdit()`：返回深拷贝，供 `SettingsWindow` 编辑隔离。
+- `UpdateCache(action)`：`SettingsWindow` 保存时同步缓存（落盘由 `SettingsManager.Save` 统一完成）。
 
 ### `SettingsWindow` 5 页编辑
-常规（唤醒键）/ 动作管理（DataGrid）/ 截屏 / 菜单 / 贴图，覆盖四组全部字段。"应用设置"时四组写回 `SettingsManager.Instance.Settings` + `Save()`（reattach 全组防被唤醒 `Load` 替换），并调 `MainWindow.ApplyMenuSettings` 即时刷新菜单（`Menu` 组无需重启；`Snipping`/`Pin` 分别在下次截图/钉图时生效；`Action` 每次唤醒热重载）。颜色字段 hex 文本框 + 实时预览；`Validate` 全字段校验，非法 `MessageBox` 拦截。排版细节见 `docs/03-ui-and-styling.md`。
+常规（唤醒键）/ 动作管理（DataGrid）/ 截屏 / 菜单 / 贴图，覆盖四组全部字段。"应用设置"时四组写回 `SettingsManager.Instance.Settings` + `Save()`，并调 `MainWindow.ApplyMenuSettings` 即时刷新菜单 + `RefreshActions` 重绑动作 + `ActionStore.UpdateCache` 同步缓存（`Menu`/`Action` 即时生效；`Snipping`/`Pin` 分别在下次截图/钉图时生效）。颜色字段 hex 文本框 + 实时预览；`Validate` 全字段校验，非法 `MessageBox` 拦截。排版细节见 `docs/03-ui-and-styling.md`。
 
 ## 3. 统一配置三层规范
 

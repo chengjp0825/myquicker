@@ -29,7 +29,11 @@ internal sealed class GlobalHookService : IDisposable
     /// <summary>复用缓冲，避免每次 mousemove 给 IsCircle 传参时分配 List。</summary>
     private readonly List<POINT> _pointsBuffer = new();
 
+    /// <summary>IsCircle 节流时间戳：检测每 CircleCheckIntervalMs ms 一次，避免每个 mousemove 跑几何判定拖慢钩子线程。</summary>
+    private long _lastCircleCheckTick;
+
     private const int GestureWindowMs = 800;
+    private const int CircleCheckIntervalMs = 30;
 
     /// <summary>
     /// Raised on the UI thread when the configured wake-up button is
@@ -109,8 +113,11 @@ internal sealed class GlobalHookService : IDisposable
                     _moveHistory.Enqueue((info.pt, now));
                     PruneMoveHistory(now);
 
-                    if (_moveHistory.Count >= 8)
+                    // 节流：入队/剪枝每次都做（极轻），IsCircle 每 30ms 才跑一次。
+                    // 否则高轮询鼠标下每个 mousemove 都复制历史 + Atan2 计算会阻塞钩子线程致鼠标卡顿。
+                    if (_moveHistory.Count >= 8 && now - _lastCircleCheckTick >= CircleCheckIntervalMs)
                     {
+                        _lastCircleCheckTick = now;
                         _pointsBuffer.Clear();
                         foreach (var item in _moveHistory)
                             _pointsBuffer.Add(item.Position);

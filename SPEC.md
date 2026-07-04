@@ -27,9 +27,9 @@
 > 钩子存活、异步分发时效、`WM_MOUSEMOVE` 旁观逻辑、P-Invoke 签名索引详见 [`docs/02-interaction-engine.md`](docs/02-interaction-engine.md)。
 
 ### 4.2 Frameless Wake-up Menu (`MainWindow`)
-无框顶层菜单，弹出与点击均不抢焦点。方块矩阵布局展示动作，光标位置居中弹出，点击动作执行后隐藏。菜单可见时唤醒无效（防重入）。每次唤醒热重载动作列表；`Menu` 视觉参数即时刷新。
+全局单例无框顶层菜单，预热后常驻（屏幕外 + 透明），唤醒仅瞬移定位 + 显透明度 + `SetWindowPos` 置顶不抢焦，零 IO。方块矩阵布局展示动作，光标位置居中，点击动作后睡眠。已唤醒时再次唤醒无效（防重入）。
 
-> 矩阵布局、定位、防重入两道闸、设置入口详见 [`docs/03-ui-and-styling.md`](docs/03-ui-and-styling.md)；防重入闸判定细节见 [`docs/02-interaction-engine.md`](docs/02-interaction-engine.md)。
+> 极速唤醒渲染规范（单例预热 / 禁用 Show-Hide / 零 IO）详见 [`docs/03-ui-and-styling.md`](docs/03-ui-and-styling.md) §7；防重入闸判定细节见 [`docs/02-interaction-engine.md`](docs/02-interaction-engine.md)。
 
 ### 4.3 Action Execution Engine (`ActionExecutor`)
 动作列表经 `ActionStore` 从 `settings.json` 加载。`sys:` 前缀为内部协议指令，由 `Execute` 拦截，不走 `Process.Start`；其余命令按外部进程启动。空命令校验 + `Process.Start` 容错。
@@ -37,7 +37,7 @@
 > `sys:` 指令登记表与新增指引详见 [`docs/01-architecture-and-config.md`](docs/01-architecture-and-config.md)；容错细节见 [`docs/02-interaction-engine.md`](docs/02-interaction-engine.md)。
 
 ### 4.4 Configuration System (`SettingsManager` / `ActionStore`)
-`SettingsManager` 全局单例，统一配置中心，读写 `SettingsModel` 四组（`Action` / `Snipping` / `Menu` / `Pin`）到 `settings.json`。`ActionStore` 静态门面封装动作域读写。`SettingsWindow` 5 页编辑全部四组字段，应用即落盘并即时刷新菜单。热重载与编辑隔离。
+`SettingsManager` 全局单例，统一配置中心，读写 `SettingsModel` 四组（`Action` / `Snipping` / `Menu` / `Pin`）到 `settings.json`。`ActionStore` 静态门面持动作内存缓存（启动载入，唤醒零 IO，编辑深拷贝隔离）。`SettingsWindow` 5 页编辑全部四组字段，应用即落盘 + 刷新缓存 + 重绑菜单。
 
 > 原子写、`.bak` 备份、旧配置迁移、统一配置三层（JSON / ThemeStyles / 内联）详见 [`docs/01-architecture-and-config.md`](docs/01-architecture-and-config.md)。
 

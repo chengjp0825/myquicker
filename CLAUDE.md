@@ -20,7 +20,7 @@ Spec 驱动开发（SDD）：`SPEC.md` 为高层系统规范（PRD），`docs/` 
 
 ## 开发约定
 - 一次只实现一个模块（SPEC §5）；先验证 `StructLayout` 内存对齐再测钩子。
-- 配置热重载：`MainWindow` 每次唤醒都经 `ActionStore` → `SettingsManager.Instance.Load()` 从磁盘重新加载动作列表；`Menu` 组经 `ApplyMenuSettings` 即时刷新，编辑 `settings.json` 无需重启。
+- 动作缓存：`ActionStore` 启动时一次性载入动作列表到内存，唤醒零 IO；`SettingsWindow` 保存时 `UpdateCache` 同步缓存 + `MainWindow.RefreshActions` 重绑菜单。`Menu` 组经 `ApplyMenuSettings` 即时刷新。MainWindow 为全局单例预热常驻，显隐走屏幕外瞬移 + `Opacity`（禁用 `Show`/`Hide`/`Visibility`），见 docs/03 §7。
 - 注释风格：公开 API 附 XML 注释，关键约束在注释中标注对应 SPEC 节/步骤（如 `Per SPEC §4.1`）。
 - 调试日志：用 `System.Diagnostics.Debug.WriteLine`（`[Conditional("DEBUG")]`，Debug 保留、Release 自动剥离）。**不要再加 `Console.WriteLine` 或 `AttachConsole`**（已全部移除）。
 
@@ -38,3 +38,4 @@ Spec 驱动开发（SDD）：`SPEC.md` 为高层系统规范（PRD），`docs/` 
 - 禁止混合 feature / fix / refactor
 - 禁止使用模糊提交（update / fix bug / test）
 - 禁止提交信息携带 Agent、AI信息
+

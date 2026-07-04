@@ -12,7 +12,8 @@ using Point = System.Windows.Point;
 namespace MyQuicker.UI;
 
 /// <summary>
-/// Interaction logic for MainWindow.xaml
+/// 唤醒菜单（全局单例，预热常驻）。显隐走「屏幕外瞬移 + Opacity」，禁用 Show/Hide/Visibility，
+/// 避开 DWM 表面重新分配延迟。极速唤醒渲染规范见 docs/03-ui-and-styling.md §7。
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -24,6 +25,9 @@ public partial class MainWindow : Window
     /// </summary>
     public Action? OpenSettingsAction { get; set; }
 
+    /// <summary>菜单当前是否可见。窗口预热后 IsVisible 恒为 true，故用独立标志跟踪显隐。</summary>
+    private bool _isAwake;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -32,6 +36,8 @@ public partial class MainWindow : Window
 
         // 关键视觉参数从统一配置注入；ApplyMenuSettings 同时供 SettingsWindow 应用后即时刷新。
         ApplyMenuSettings(SettingsManager.Instance.Settings.Menu);
+        // 预绑定动作列表（内存缓存，无 IO）。唤醒时不再重绑。
+        RefreshActions();
     }
 
     /// <summary>
@@ -49,6 +55,12 @@ public partial class MainWindow : Window
         Resources["MenuButtonHoverBackgroundBrush"] = BrushHelper.ToBrush(menu.ButtonHoverBackground);
     }
 
+    /// <summary>从 ActionStore 内存缓存重绑动作列表（无 IO）。构造时与设置页保存后调用。</summary>
+    internal void RefreshActions()
+    {
+        ActionsControl.ItemsSource = _executor.GetActions();
+    }
+
     /// <summary>
     /// Once the native HWND exists, mark the window as No-Activate so it
     /// never steals focus from the application the user is working in.
@@ -63,51 +75,72 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Hook event handler: position the window centered on the cursor and
-    /// show it (without activating). Per SPEC.md §4.2.
+    /// Hook event handler: wake the menu centered on the cursor. Per SPEC.md §4.2.
+    /// 已唤醒时再次唤醒无效（防重入）；截屏覆盖层开启时不抢唤醒。
     /// </summary>
     internal void OnHookWakeupClick(object? sender, POINT e)
     {
-        // 面板已可见时，后续唤醒动作一律无效（不重弹、不关闭）；关闭靠点外面或点动作。
-        if (IsVisible)
+        if (_isAwake)
             return;
 
         // 截屏覆盖层开启时不抢唤醒，避免自定义截图时画圈寻位/按键误触菜单。
         if (System.Windows.Application.Current?.Windows.OfType<ScreenshotWindow>().Any() == true)
             return;
 
-        PositionAtCursor(e); // place before show (avoids flicker once hwnd exists)
+        // 设置页开启时不抢唤醒，避免编辑配置时画圈/按键误触菜单、再经齿轮开出第二个设置页。
+        if (System.Windows.Application.Current?.Windows.OfType<SettingsWindow>().Any() == true)
+            return;
 
-        // Hot-reload actions from disk on every wake-up so edits to
-        // actions.json are reflected without restarting the app.
-        ActionsControl.ItemsSource = _executor.GetActions();
+        WakeUp(e);
+    }
 
-        Show();
-        PositionAtCursor(e); // refine DPI now that the hwnd exists
+    /// <summary>
+    /// 唤醒：光标居中定位 + 显透明度 + 重申置顶不抢焦。零 IO、零 Show（docs/03 §7.3）。
+    /// </summary>
+    private void WakeUp(POINT e)
+    {
+        PositionAtCursor(e); // 先定位再显，避免可见后跳位
+        Opacity = 1;
+        _isAwake = true;
+
+        var hwnd = new WindowInteropHelper(this).Handle;
+        NativeMethods.SetWindowPos(hwnd, NativeMethods.HWND_TOPMOST, 0, 0, 0, 0,
+            NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE);
+    }
+
+    /// <summary>
+    /// 睡眠：透明 + 丢出屏幕外。禁用 Hide()/Visibility（docs/03 §7.3）。
+    /// </summary>
+    internal void Sleep()
+    {
+        Opacity = 0;
+        Left = -9999;
+        Top = -9999;
+        _isAwake = false;
     }
 
     /// <summary>
     /// Hook event handler: if any mouse button is pressed outside the
-    /// window bounds while we are visible, hide the menu. The click itself
+    /// window bounds while we are awake, sleep the menu. The click itself
     /// is not blocked, so it also reaches the underlying application.
     /// </summary>
     internal void OnAnyMouseDown(object? sender, POINT e)
     {
-        if (!IsVisible)
+        if (!_isAwake)
             return;
 
         var p = ToLogical(e);
         if (p.X < Left || p.X > Left + Width || p.Y < Top || p.Y > Top + Height)
-            Hide();
+            Sleep();
     }
 
     /// <summary>
-    /// A menu button was clicked: hide the menu first, then run the action.
-    /// (Button clicks land inside the window, so OnAnyMouseDown won't hide it.)
+    /// A menu button was clicked: sleep the menu first, then run the action.
+    /// (Button clicks land inside the window, so OnAnyMouseDown won't sleep it.)
     /// </summary>
     private void ActionButton_Click(object sender, RoutedEventArgs e)
     {
-        Hide();
+        Sleep();
 
         if (sender is Button btn && btn.DataContext is ActionItem item)
         {
@@ -116,11 +149,11 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Gear button: hide the menu, then open the settings center.
+    /// Gear button: sleep the menu, then open the settings center.
     /// </summary>
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
-        Hide();
+        Sleep();
         OpenSettingsAction?.Invoke();
     }
 
@@ -139,7 +172,10 @@ public partial class MainWindow : Window
     private void PositionAtCursor(POINT e)
     {
         var p = ToLogical(e);
-        Left = p.X - Width / 2;
-        Top = p.Y - Height / 2;
+        // 用 ActualWidth/Height（预热后已布局完成），未布局时回退 Width/Height。
+        double w = ActualWidth > 0 ? ActualWidth : Width;
+        double h = ActualHeight > 0 ? ActualHeight : Height;
+        Left = p.X - w / 2;
+        Top = p.Y - h / 2;
     }
 }

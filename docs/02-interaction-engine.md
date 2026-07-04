@@ -87,9 +87,10 @@
 
 ## 6. 唤醒手势防重入
 
-`MainWindow.OnHookWakeupClick` 开头两道闸（任一命中即 `return`，不弹菜单）：
-1. `if (IsVisible) return;` —— 菜单已可见时，后续唤醒动作（画圈/按键）一律无效（不重弹、不关闭）；关闭靠点外面或点动作。
-2. `if (Application.Current.Windows.OfType<ScreenshotWindow>().Any()) return;` —— 截屏覆盖层开启时不抢唤醒，避免截图选区时画圈/按键误触菜单。
+`MainWindow.OnHookWakeupClick` 开头三道闸（任一命中即 `return`，不唤醒）：
+1. `if (_isAwake) return;` —— 菜单已唤醒时，后续唤醒动作（画圈/按键）一律无效（不重弹、不关闭）；睡眠靠点外面或点动作。（窗口预热后 `IsVisible` 恒 true，故用 `_isAwake` 标志跟踪，docs/03 §7.3。）
+2. `if (Application.Current.Windows.OfType<ScreenshotWindow>().Any()) return;` —— 截屏覆盖层开启时不抢唤醒。
+3. `if (Application.Current.Windows.OfType<SettingsWindow>().Any()) return;` —— 设置页开启时不抢唤醒，避免编辑配置时误触菜单、再经齿轮开出第二个设置页（`OpenSettings` 亦为单例）。
 
 ## 7. 崩溃兜底与健壮性
 

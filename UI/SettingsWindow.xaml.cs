@@ -25,8 +25,8 @@ public partial class SettingsWindow : Window
         _hookService = hookService;
         _mainWindow = mainWindow;
 
-        // ActionStore.Load() 重读磁盘，随后抓同一份 Settings 的其余三组引用。
-        _action = ActionStore.Load();
+        // ActionStore.LoadForEdit() 返回内存缓存的深拷贝（隔离未保存编辑，无 IO）。
+        _action = ActionStore.LoadForEdit();
         var s = SettingsManager.Instance.Settings;
         _snipping = s.Snipping;
         _menu = s.Menu;
@@ -153,9 +153,11 @@ public partial class SettingsWindow : Window
         s.Menu = _menu;
         s.Pin = _pin;
         SettingsManager.Instance.Save();
+        ActionStore.UpdateCache(_action); // 同步动作内存缓存（唤醒零 IO，docs/03 §7.4）
 
         _hookService.UpdateSettings(_action);
         _mainWindow?.ApplyMenuSettings(_menu);
+        _mainWindow?.RefreshActions(); // 菜单动作列表即时刷新
         Close();
     }
 

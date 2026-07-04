@@ -27,6 +27,8 @@ public partial class App : Application
 
         // 统一配置：加载 settings.json（首次自动迁移旧 appsettings.json 的唤醒键与动作列表）。
         SettingsManager.Instance.Load();
+        // 动作数据一次性载入内存缓存，唤醒路径零 IO（docs/03 §7.4）。
+        ActionStore.Init(SettingsManager.Instance.Settings.Action);
 
         _hookService = new GlobalHookService();
         _hookService.UpdateSettings(SettingsManager.Instance.Settings.Action);
@@ -35,6 +37,15 @@ public partial class App : Application
         _mainWindow.OpenSettingsAction = OpenSettings;
         _hookService.OnWakeupClick += _mainWindow.OnHookWakeupClick;
         _hookService.OnAnyMouseDown += _mainWindow.OnAnyMouseDown;
+
+        // 预热（docs/03 §7.2）：屏幕外 + 透明 + Show 一次，强迫 WPF 完成 XAML 解析、
+        // 模板绑定与 GPU 材质编译。窗口已渲染在内存，用户不可见；唤醒仅瞬移+显透明度。
+        _mainWindow.WindowStartupLocation = WindowStartupLocation.Manual;
+        _mainWindow.Left = -9999;
+        _mainWindow.Top = -9999;
+        _mainWindow.Opacity = 0;
+        _mainWindow.Show();
+
         _hookService.Start();
 
         InitializeTray();
@@ -62,6 +73,17 @@ public partial class App : Application
     {
         if (_hookService is null)
             return;
+
+        // 单例：已存在则激活前置，不重复创建（防画圈唤醒菜单后再次点齿轮开出第二个设置页）。
+        var existing = Application.Current?.Windows.OfType<SettingsWindow>().FirstOrDefault();
+        if (existing is not null)
+        {
+            existing.Activate();
+            existing.Topmost = true;  // 强行置顶，穿透系统前台锁拦截
+            existing.Topmost = false;
+            existing.Focus();
+            return;
+        }
 
         var window = new SettingsWindow(_hookService, _mainWindow);
         window.Show();
