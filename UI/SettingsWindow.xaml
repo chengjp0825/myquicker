@@ -38,175 +38,421 @@
             </StackPanel>
         </Border>
 
-        <!-- Content -->
-        <Grid Grid.Column="1" Margin="30,20,30,20">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-
-            <!-- Page 1: General -->
-            <StackPanel Grid.Row="0"
-                        Visibility="{Binding IsChecked, ElementName=NavGeneral, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="常规设置" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,20" />
-                <TextBlock Text="操作触发参数" FontSize="13" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,8" />
-                <ComboBox x:Name="WakeupKeyCombo" FontSize="14" Padding="10,8"
-                          Width="320" HorizontalAlignment="Left" SelectedIndex="0">
-                    <ComboBoxItem Content="鼠标中键" />
-                    <ComboBoxItem Content="鼠标侧键 1 (后退)" />
-                    <ComboBoxItem Content="鼠标侧键 2 (前进)" />
-                </ComboBox>
-            </StackPanel>
-
-            <!-- Page 2: Actions -->
-            <Grid Grid.Row="0"
-                  Visibility="{Binding IsChecked, ElementName=NavActions, Converter={StaticResource BoolToVis}}">
+        <!-- Content (Fluent 画布) -->
+        <Border Grid.Column="1" Background="#FAFAFA">
+            <Grid Margin="30,20,30,20">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <TextBlock Grid.Row="0" Text="动作管理" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,20" />
-                <DataGrid x:Name="ActionsGrid" Grid.Row="1"
-                          AutoGenerateColumns="False"
-                          CanUserAddRows="True"
-                          CanUserDeleteRows="True"
-                          CanUserResizeColumns="True"
-                          HeadersVisibility="Column"
-                          GridLinesVisibility="All"
-                          HorizontalGridLinesBrush="{StaticResource GridLinesBrush}"
-                          VerticalGridLinesBrush="{StaticResource GridLinesBrush}"
-                          BorderBrush="{StaticResource DividerBrush}"
-                          BorderThickness="1"
-                          RowBackground="White"
-                          AlternatingRowBackground="{StaticResource AlternatingRowBrush}"
-                          AlternationCount="2"
-                          ColumnHeaderHeight="34">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="*" />
-                        <DataGridTextColumn Header="命令" Binding="{Binding Command}" Width="2*" />
-                        <DataGridTextColumn Header="参数" Binding="{Binding Arguments}" Width="2*" />
-                    </DataGrid.Columns>
-                </DataGrid>
+
+                <!-- Page 1: General -->
+                <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding IsChecked, ElementName=NavGeneral, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Margin="0,0,8,0">
+                        <TextBlock Text="常规设置" FontSize="22" FontWeight="SemiBold"
+                                   Foreground="{StaticResource FieldTitleBrush}" Margin="0,0,0,4" />
+                        <TextBlock Text="配置唤醒菜单的触发方式。"
+                                   FontSize="13" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,20" />
+
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource CardTitle}" Text="唤醒键" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="280" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="鼠标按键" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="按下此键弹出唤醒菜单" />
+                                    </StackPanel>
+                                    <ComboBox x:Name="WakeupKeyCombo" Grid.Column="1"
+                                              Style="{StaticResource FlatComboBox}"
+                                              Width="280" HorizontalAlignment="Right" SelectedIndex="0">
+                                        <ComboBoxItem Content="鼠标中键" />
+                                        <ComboBoxItem Content="鼠标侧键 1 (后退)" />
+                                        <ComboBoxItem Content="鼠标侧键 2 (前进)" />
+                                    </ComboBox>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Page 2: Actions -->
+                <Grid Grid.Row="0"
+                      Visibility="{Binding IsChecked, ElementName=NavActions, Converter={StaticResource BoolToVis}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Margin="0,0,8,4">
+                        <TextBlock Text="动作管理" FontSize="22" FontWeight="SemiBold"
+                                   Foreground="{StaticResource FieldTitleBrush}" Margin="0,0,0,4" />
+                        <TextBlock Text="菜单中显示的动作，可双击单元格编辑。"
+                                   FontSize="13" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,16" />
+                    </StackPanel>
+                    <Border Grid.Row="1" Style="{StaticResource Card}" Padding="0" Margin="0">
+                        <DataGrid x:Name="ActionsGrid"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="True"
+                                  CanUserDeleteRows="True"
+                                  CanUserResizeColumns="True"
+                                  HeadersVisibility="Column"
+                                  GridLinesVisibility="All"
+                                  HorizontalGridLinesBrush="{StaticResource GridLinesBrush}"
+                                  VerticalGridLinesBrush="{StaticResource GridLinesBrush}"
+                                  BorderThickness="0"
+                                  RowBackground="White"
+                                  AlternatingRowBackground="{StaticResource AlternatingRowBrush}"
+                                  AlternationCount="2"
+                                  ColumnHeaderHeight="34">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="*" />
+                                <DataGridTextColumn Header="命令" Binding="{Binding Command}" Width="2*" />
+                                <DataGridTextColumn Header="参数" Binding="{Binding Arguments}" Width="2*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </Grid>
+
+                <!-- Page 3: Snipping -->
+                <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding IsChecked, ElementName=NavSnipping, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Margin="0,0,8,0">
+                        <TextBlock Text="截屏" FontSize="22" FontWeight="SemiBold"
+                                   Foreground="{StaticResource FieldTitleBrush}" Margin="0,0,0,4" />
+                        <TextBlock Text="调整智能寻边与拖拽选区的视觉参数。"
+                                   FontSize="13" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,20" />
+
+                        <!-- Card: 选区红框 -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource CardTitle}" Text="选区红框" />
+
+                                <Grid Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="红框颜色" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="寻边时高亮目标窗口的描边色" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBox x:Name="SnippingBorderColorBox" Style="{StaticResource FlatTextBox}" Width="158" />
+                                        <Border x:Name="SnippingBorderColorPreview" Style="{StaticResource ColorSwatch}" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <Border Style="{StaticResource RowSeparator}" />
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="红框厚度" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="单位 px" />
+                                    </StackPanel>
+                                    <TextBox Grid.Column="1" x:Name="SnippingBorderThicknessBox"
+                                             Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Card: 覆盖层与交互 -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource CardTitle}" Text="覆盖层与交互" />
+
+                                <Grid Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="暗罩颜色" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="选区外的遮罩色（#AARRGGBB）" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBox x:Name="SnippingMaskColorBox" Style="{StaticResource FlatTextBox}" Width="158" />
+                                        <Border x:Name="SnippingMaskColorPreview" Style="{StaticResource ColorSwatch}" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <Border Style="{StaticResource RowSeparator}" />
+
+                                <Grid Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="覆盖层背景色" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="截图罩窗口的底色" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBox x:Name="SnippingOverlayBgBox" Style="{StaticResource FlatTextBox}" Width="158" />
+                                        <Border x:Name="SnippingOverlayBgPreview" Style="{StaticResource ColorSwatch}" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <Border Style="{StaticResource RowSeparator}" />
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="点击/拖拽阈值" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="位移超过此值即升级为拖拽（DIP）" />
+                                    </StackPanel>
+                                    <TextBox Grid.Column="1" x:Name="SnippingDragThresholdBox"
+                                             Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Page 4: Menu -->
+                <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding IsChecked, ElementName=NavMenu, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Margin="0,0,8,0">
+                        <TextBlock Text="菜单" FontSize="22" FontWeight="SemiBold"
+                                   Foreground="{StaticResource FieldTitleBrush}" Margin="0,0,0,4" />
+                        <TextBlock Text="唤醒菜单的尺寸与配色，应用后即时刷新。"
+                                   FontSize="13" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,20" />
+
+                        <!-- Card: 尺寸与圆角 -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource CardTitle}" Text="尺寸与圆角" />
+
+                                <Grid Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="窗口宽度" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="单位 DIP" />
+                                    </StackPanel>
+                                    <TextBox Grid.Column="1" x:Name="MenuWidthBox"
+                                             Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
+                                </Grid>
+
+                                <Border Style="{StaticResource RowSeparator}" />
+
+                                <Grid Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="窗口高度" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="单位 DIP" />
+                                    </StackPanel>
+                                    <TextBox Grid.Column="1" x:Name="MenuHeightBox"
+                                             Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
+                                </Grid>
+
+                                <Border Style="{StaticResource RowSeparator}" />
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="圆角半径" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="单位 px" />
+                                    </StackPanel>
+                                    <TextBox Grid.Column="1" x:Name="MenuCornerRadiusBox"
+                                             Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Card: 配色 -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource CardTitle}" Text="配色" />
+
+                                <Grid Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="外层背景色" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="菜单半透明底色（#AARRGGBB）" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBox x:Name="MenuBackgroundBox" Style="{StaticResource FlatTextBox}" Width="158" />
+                                        <Border x:Name="MenuBackgroundPreview" Style="{StaticResource ColorSwatch}" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <Border Style="{StaticResource RowSeparator}" />
+
+                                <Grid Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="按钮背景色" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="动作按钮常态底色" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBox x:Name="MenuButtonBgBox" Style="{StaticResource FlatTextBox}" Width="158" />
+                                        <Border x:Name="MenuButtonBgPreview" Style="{StaticResource ColorSwatch}" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <Border Style="{StaticResource RowSeparator}" />
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="按钮悬停色" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="鼠标悬停时的底色" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBox x:Name="MenuButtonHoverBgBox" Style="{StaticResource FlatTextBox}" Width="158" />
+                                        <Border x:Name="MenuButtonHoverBgPreview" Style="{StaticResource ColorSwatch}" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Page 5: Pin -->
+                <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding IsChecked, ElementName=NavPin, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Margin="0,0,8,0">
+                        <TextBlock Text="贴图" FontSize="22" FontWeight="SemiBold"
+                                   Foreground="{StaticResource FieldTitleBrush}" Margin="0,0,0,4" />
+                        <TextBlock Text="贴图窗口的尺寸与外观，下次钉图时生效。"
+                                   FontSize="13" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,20" />
+
+                        <!-- Card: 尺寸 -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource CardTitle}" Text="尺寸" />
+
+                                <Grid Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="最小宽度" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="单位 px" />
+                                    </StackPanel>
+                                    <TextBox Grid.Column="1" x:Name="PinMinWidthBox"
+                                             Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
+                                </Grid>
+
+                                <Border Style="{StaticResource RowSeparator}" />
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="最小高度" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="单位 px" />
+                                    </StackPanel>
+                                    <TextBox Grid.Column="1" x:Name="PinMinHeightBox"
+                                             Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Card: 外观 -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource CardTitle}" Text="外观" />
+
+                                <Grid Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="边界颜色" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="“显示边界”开启时的描边色" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBox x:Name="PinBorderColorBox" Style="{StaticResource FlatTextBox}" Width="158" />
+                                        <Border x:Name="PinBorderColorPreview" Style="{StaticResource ColorSwatch}" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <Border Style="{StaticResource RowSeparator}" />
+
+                                <Grid Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="阴影模糊半径" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="贴图投影的柔化程度" />
+                                    </StackPanel>
+                                    <TextBox Grid.Column="1" x:Name="PinShadowBlurBox"
+                                             Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
+                                </Grid>
+
+                                <Border Style="{StaticResource RowSeparator}" />
+
+                                <Grid Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="旋转步进" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="每次旋转的角度（度）" />
+                                    </StackPanel>
+                                    <TextBox Grid.Column="1" x:Name="PinRotationStepBox"
+                                             Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
+                                </Grid>
+
+                                <Border Style="{StaticResource RowSeparator}" />
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldTitle}" Text="默认不透明度" />
+                                        <TextBlock Style="{StaticResource FieldDesc}" Text="0~1 之间的数值" />
+                                    </StackPanel>
+                                    <TextBox Grid.Column="1" x:Name="PinDefaultOpacityBox"
+                                             Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Apply button -->
+                <Button Grid.Row="1" Content="应用设置" Style="{StaticResource ActionButton}"
+                        Click="SaveButton_Click" HorizontalAlignment="Right" Margin="0,12,0,0" />
             </Grid>
-
-            <!-- Page 3: Snipping -->
-            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
-                          Visibility="{Binding IsChecked, ElementName=NavSnipping, Converter={StaticResource BoolToVis}}">
-                <StackPanel>
-                    <TextBlock Text="截屏" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,16" />
-                    <TextBlock Text="颜色用 #AARRGGBB 或命名色（如 Black / Gray）" FontSize="12"
-                               Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,12" />
-
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Width="150" VerticalAlignment="Center" Text="点击/拖拽阈值 (DIP)" />
-                        <TextBox x:Name="SnippingDragThresholdBox" Width="80" Padding="6,4" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Width="150" VerticalAlignment="Center" Text="暗罩颜色" />
-                        <TextBox x:Name="SnippingMaskColorBox" Width="120" Padding="6,4" />
-                        <Border x:Name="SnippingMaskColorPreview" Width="40" Height="22" Margin="8,0,0,0"
-                                BorderBrush="#CCC" BorderThickness="1" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Width="150" VerticalAlignment="Center" Text="选区红框颜色" />
-                        <TextBox x:Name="SnippingBorderColorBox" Width="120" Padding="6,4" />
-                        <Border x:Name="SnippingBorderColorPreview" Width="40" Height="22" Margin="8,0,0,0"
-                                BorderBrush="#CCC" BorderThickness="1" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Width="150" VerticalAlignment="Center" Text="红框厚度 (px)" />
-                        <TextBox x:Name="SnippingBorderThicknessBox" Width="80" Padding="6,4" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Width="150" VerticalAlignment="Center" Text="覆盖层背景色" />
-                        <TextBox x:Name="SnippingOverlayBgBox" Width="120" Padding="6,4" />
-                        <Border x:Name="SnippingOverlayBgPreview" Width="40" Height="22" Margin="8,0,0,0"
-                                BorderBrush="#CCC" BorderThickness="1" />
-                    </StackPanel>
-                </StackPanel>
-            </ScrollViewer>
-
-            <!-- Page 4: Menu -->
-            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
-                          Visibility="{Binding IsChecked, ElementName=NavMenu, Converter={StaticResource BoolToVis}}">
-                <StackPanel>
-                    <TextBlock Text="菜单" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,16" />
-                    <TextBlock Text="应用后即时刷新到唤醒菜单，无需重启。" FontSize="12"
-                               Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,12" />
-
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Width="150" VerticalAlignment="Center" Text="窗口宽度 (DIP)" />
-                        <TextBox x:Name="MenuWidthBox" Width="80" Padding="6,4" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Width="150" VerticalAlignment="Center" Text="窗口高度 (DIP)" />
-                        <TextBox x:Name="MenuHeightBox" Width="80" Padding="6,4" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Width="150" VerticalAlignment="Center" Text="外层背景色" />
-                        <TextBox x:Name="MenuBackgroundBox" Width="120" Padding="6,4" />
-                        <Border x:Name="MenuBackgroundPreview" Width="40" Height="22" Margin="8,0,0,0"
-                                BorderBrush="#CCC" BorderThickness="1" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Width="150" VerticalAlignment="Center" Text="圆角半径 (px)" />
-                        <TextBox x:Name="MenuCornerRadiusBox" Width="80" Padding="6,4" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Width="150" VerticalAlignment="Center" Text="按钮背景色" />
-                        <TextBox x:Name="MenuButtonBgBox" Width="120" Padding="6,4" />
-                        <Border x:Name="MenuButtonBgPreview" Width="40" Height="22" Margin="8,0,0,0"
-                                BorderBrush="#CCC" BorderThickness="1" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Width="150" VerticalAlignment="Center" Text="按钮悬停色" />
-                        <TextBox x:Name="MenuButtonHoverBgBox" Width="120" Padding="6,4" />
-                        <Border x:Name="MenuButtonHoverBgPreview" Width="40" Height="22" Margin="8,0,0,0"
-                                BorderBrush="#CCC" BorderThickness="1" />
-                    </StackPanel>
-                </StackPanel>
-            </ScrollViewer>
-
-            <!-- Page 5: Pin -->
-            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
-                          Visibility="{Binding IsChecked, ElementName=NavPin, Converter={StaticResource BoolToVis}}">
-                <StackPanel>
-                    <TextBlock Text="贴图" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,16" />
-                    <TextBlock Text="下次钉图时生效。" FontSize="12"
-                               Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,12" />
-
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Width="150" VerticalAlignment="Center" Text="最小宽度 (px)" />
-                        <TextBox x:Name="PinMinWidthBox" Width="80" Padding="6,4" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Width="150" VerticalAlignment="Center" Text="最小高度 (px)" />
-                        <TextBox x:Name="PinMinHeightBox" Width="80" Padding="6,4" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Width="150" VerticalAlignment="Center" Text="边界颜色" />
-                        <TextBox x:Name="PinBorderColorBox" Width="120" Padding="6,4" />
-                        <Border x:Name="PinBorderColorPreview" Width="40" Height="22" Margin="8,0,0,0"
-                                BorderBrush="#CCC" BorderThickness="1" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Width="150" VerticalAlignment="Center" Text="阴影模糊半径" />
-                        <TextBox x:Name="PinShadowBlurBox" Width="80" Padding="6,4" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Width="150" VerticalAlignment="Center" Text="旋转步进 (度)" />
-                        <TextBox x:Name="PinRotationStepBox" Width="80" Padding="6,4" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Width="150" VerticalAlignment="Center" Text="默认不透明度 (0-1)" />
-                        <TextBox x:Name="PinDefaultOpacityBox" Width="80" Padding="6,4" />
-                    </StackPanel>
-                </StackPanel>
-            </ScrollViewer>
-
-            <!-- Apply button -->
-            <Button Grid.Row="1" Content="应用设置" Style="{StaticResource ActionButton}"
-                    Click="SaveButton_Click" HorizontalAlignment="Right" Margin="0,12,0,0" />
-        </Grid>
+        </Border>
     </Grid>
 </Window>
