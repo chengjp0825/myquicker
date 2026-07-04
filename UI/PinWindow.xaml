@@ -11,15 +11,18 @@
         WindowStartupLocation="Manual"
         SnapsToDevicePixels="True"
         RenderOptions.BitmapScalingMode="HighQuality"
-        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+        MouseLeftButtonDown="Window_MouseLeftButtonDown"
+        MouseEnter="Window_MouseEnter"
+        MouseLeave="Window_MouseLeave">
 
     <!--
-        两层结构，边框向外生长、不侵占图片面积：
-        · PinBorder 铺满整窗，BorderThickness 绘制在最外圈（边框层）。
-        · Image 用 Margin=border 向内缩，保证图片内容面积恒为 imgW×imgH。
-        两层均 IsHitTestVisible=False，命中测试落到 Window（拖拽 / 右键菜单）。
-        HorizontalAlignment/VerticalAlignment=Center：旋转 90/270 时图片在
-        互换后的窗口内居中渲染，窗口紧贴外接矩形、无留白。
+        三层结构：
+        · PinBorder 铺满整窗，BorderThickness 绘制最外圈（边框层，向外生长）。
+        · ContentRoot（Margin=border，由 code-behind 设）= 图片视觉区，也是 RenderTargetBitmap 导出根；
+          Background={x:Null} 使本层不拦截命中，None 模式左键击穿到 Window 走 DragMove。
+          内含 PinImage（Margin=0，旋转/镜像/阴影）+ AnnotationCanvas（批注层，IsHitTestVisible 按模式切）。
+        · AnnotationToolbar 右上角悬浮，在 ContentRoot 之外 → 不参与导出；Hover 淡入/淡出（默认 Opacity=0）。
+        坐标空间 = 视图空间（WYSIWYG）：批注不随 PinImage.RenderTransform 旋转。
     -->
     <Grid x:Name="RootGrid">
         <Border x:Name="PinBorder"
@@ -27,27 +30,99 @@
                 BorderThickness="0"
                 IsHitTestVisible="False" />
 
-        <Image x:Name="PinImage"
-               Stretch="None"
-               IsHitTestVisible="False"
-               HorizontalAlignment="Center"
-               VerticalAlignment="Center"
-               Margin="0"
-               RenderTransformOrigin="0.5,0.5">
-            <Image.RenderTransform>
-                <TransformGroup>
-                    <ScaleTransform x:Name="ScaleTransform" ScaleX="1" ScaleY="1" />
-                    <RotateTransform x:Name="RotateTransform" Angle="0" />
-                </TransformGroup>
-            </Image.RenderTransform>
-            <Image.Effect>
-                <DropShadowEffect x:Name="ShadowEffect"
-                                  Color="Black"
-                                  ShadowDepth="5"
-                                  Opacity="0.5"
-                                  Direction="315" />
-            </Image.Effect>
-        </Image>
+        <Grid x:Name="ContentRoot" Background="{x:Null}">
+            <Image x:Name="PinImage"
+                   Stretch="None"
+                   Margin="0"
+                   IsHitTestVisible="False"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   RenderTransformOrigin="0.5,0.5">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform x:Name="ScaleTransform" ScaleX="1" ScaleY="1" />
+                        <RotateTransform x:Name="RotateTransform" Angle="0" />
+                    </TransformGroup>
+                </Image.RenderTransform>
+                <Image.Effect>
+                    <DropShadowEffect x:Name="ShadowEffect"
+                                      Color="Black"
+                                      ShadowDepth="5"
+                                      Opacity="0.5"
+                                      Direction="315" />
+                </Image.Effect>
+            </Image>
+
+            <Canvas x:Name="AnnotationCanvas"
+                    Background="Transparent"
+                    IsHitTestVisible="False"
+                    PreviewMouseLeftButtonDown="AnnotationCanvas_MouseLeftButtonDown"
+                    PreviewMouseMove="AnnotationCanvas_MouseMove"
+                    PreviewMouseLeftButtonUp="AnnotationCanvas_MouseLeftButtonUp" />
+        </Grid>
+
+        <Border x:Name="AnnotationToolbar"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="6"
+                CornerRadius="6"
+                Padding="3"
+                Background="#E6FFFFFF"
+                BorderBrush="{StaticResource ControlBorderBrush}"
+                BorderThickness="1"
+                Opacity="0"
+                IsHitTestVisible="False">
+            <StackPanel Orientation="Horizontal">
+                <RadioButton x:Name="ToolPointer" Style="{StaticResource FlatIconButton}"
+                             Content="&#xE8B7;" IsChecked="True" Tag="None" ToolTip="指针"
+                             Checked="Tool_Checked" />
+                <RadioButton x:Name="ToolRect" Style="{StaticResource FlatIconButton}"
+                             Tag="Rect" ToolTip="画框" Checked="Tool_Checked">
+                    <Rectangle Width="15" Height="11" StrokeThickness="1.5" Fill="Transparent"
+                               Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                </RadioButton>
+                <RadioButton x:Name="ToolCircle" Style="{StaticResource FlatIconButton}"
+                             Tag="Circle" ToolTip="画圆" Checked="Tool_Checked">
+                    <Ellipse Width="14" Height="14" StrokeThickness="1.5" Fill="Transparent"
+                             Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                </RadioButton>
+                <RadioButton x:Name="ToolArrow" Style="{StaticResource FlatIconButton}"
+                             Content="→" Tag="Arrow" FontFamily="Segoe UI" ToolTip="箭头"
+                             Checked="Tool_Checked" />
+                <RadioButton x:Name="ToolText" Style="{StaticResource FlatIconButton}"
+                             Content="&#xE8D2;" Tag="Text" ToolTip="文字"
+                             Checked="Tool_Checked" />
+                <Rectangle Width="1" Margin="4,2" Fill="{StaticResource DividerBrush}" />
+                <RadioButton Style="{StaticResource FlatIconButton}" GroupName="PenSize"
+                             FontFamily="Segoe UI" FontSize="8" Content="●" Tag="2"
+                             IsChecked="True" ToolTip="细 (2px)"
+                             Checked="PenSize_Checked" />
+                <RadioButton Style="{StaticResource FlatIconButton}" GroupName="PenSize"
+                             FontFamily="Segoe UI" FontSize="12" Content="●" Tag="4"
+                             ToolTip="中 (4px)"
+                             Checked="PenSize_Checked" />
+                <RadioButton Style="{StaticResource FlatIconButton}" GroupName="PenSize"
+                             FontFamily="Segoe UI" FontSize="16" Content="●" Tag="6"
+                             ToolTip="粗 (6px)"
+                             Checked="PenSize_Checked" />
+                <Rectangle Width="1" Margin="4,2" Fill="{StaticResource DividerBrush}" />
+                <RadioButton Style="{StaticResource FlatColorSwatch}" Foreground="#FF0000"
+                             IsChecked="True" Tag="#FF0000" ToolTip="红"
+                             Checked="Color_Checked" />
+                <RadioButton Style="{StaticResource FlatColorSwatch}" Foreground="#FFFF00"
+                             Tag="#FFFF00" ToolTip="黄"
+                             Checked="Color_Checked" />
+                <RadioButton Style="{StaticResource FlatColorSwatch}" Foreground="#0066CC"
+                             Tag="#0066CC" ToolTip="蓝"
+                             Checked="Color_Checked" />
+                <RadioButton Style="{StaticResource FlatColorSwatch}" Foreground="#00B050"
+                             Tag="#00B050" ToolTip="绿"
+                             Checked="Color_Checked" />
+                <RadioButton Style="{StaticResource FlatColorSwatch}" Foreground="#FFFFFF"
+                             Tag="#FFFFFF" ToolTip="白"
+                             Checked="Color_Checked" />
+            </StackPanel>
+        </Border>
     </Grid>
 
     <Window.ContextMenu>
@@ -56,7 +131,7 @@
                       Click="Topmost_Click" />
             <MenuItem Header="显示阴影" IsCheckable="True" IsChecked="True"
                       Click="Shadow_Click" />
-            <MenuItem Header="显示边界" IsCheckable="True"
+            <MenuItem Header="显示边界" IsCheckable="True" x:Name="BorderMenuItem"
                       Click="Border_Click" />
             <MenuItem Header="重置大小" Click="ResetSize_Click" />
             <MenuItem Header="不透明度">
@@ -67,6 +142,12 @@
             </MenuItem>
             <MenuItem Header="旋转" Click="Rotate_Click" />
             <MenuItem Header="镜像" Click="Mirror_Click" />
+            <MenuItem Header="批注">
+                <MenuItem Header="批注模式" IsCheckable="True" x:Name="AnnotationModeItem"
+                          Click="AnnotationMode_Click" />
+                <Separator />
+                <MenuItem Header="清除批注" Click="ClearAnnotations_Click" />
+            </MenuItem>
             <Separator />
             <MenuItem Header="复制图片" Click="CopyImage_Click" />
             <MenuItem Header="另存为..." Click="SaveAs_Click" />

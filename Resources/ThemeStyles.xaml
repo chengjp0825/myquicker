@@ -356,4 +356,71 @@
         </Setter>
     </Style>
 
+    <!-- ===== PinWindow 批注工具栏 ===== -->
+
+    <!-- 扁平图标按钮（RadioButton）：批注工具栏 指针/画框/文字 切换。
+         透明底，选中 Accent 底 + 白字，hover 浅底。Content 为 Segoe MDL2 Assets 字形。 -->
+    <Style x:Key="FlatIconButton" TargetType="RadioButton">
+        <Setter Property="GroupName" Value="AnnotationTool" />
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+        <Setter Property="Foreground" Value="{StaticResource FieldTitleBrush}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Margin" Value="1" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Bd" Background="Transparent" CornerRadius="4">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource NavHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentBrush}" />
+                            <Setter Property="Foreground" Value="White" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- 圆形色块按钮（RadioButton）：批注颜色预设。实际颜色由实例 Foreground 指定，
+         选中时 Accent 描边环显现。 -->
+    <Style x:Key="FlatColorSwatch" TargetType="RadioButton">
+        <Setter Property="GroupName" Value="AnnotationColor" />
+        <Setter Property="Width" Value="20" />
+        <Setter Property="Height" Value="20" />
+        <Setter Property="Margin" Value="3,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Grid>
+                        <Ellipse x:Name="Swatch" Width="16" Height="16"
+                                 Fill="{TemplateBinding Foreground}"
+                                 Stroke="{StaticResource ControlBorderBrush}" StrokeThickness="1"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Ellipse x:Name="Ring" Width="20" Height="20"
+                                 Stroke="{StaticResource AccentBrush}" StrokeThickness="1.5"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                                 Opacity="0" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Ring" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Ring" Property="Opacity" Value="1" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>

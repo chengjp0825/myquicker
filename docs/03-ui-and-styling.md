@@ -116,3 +116,27 @@ ESC / 右键取消关闭。
 
 ### 参数注入
 由 `SettingsModel.Pin` 注入（`MinWidth` / `MinHeight` / `BorderColor` / `ShadowBlurRadius` / `RotationStepDegrees` / `DefaultOpacity`）；阴影 Depth/Opacity/Direction/Color、`PinBorderThickness=2`、不透明度菜单预设保留内联。
+
+## 6. PinWindow 批注工具栏与默认外观
+
+贴图窗口叠加基础图片批注（画框 / 画圆 / 箭头 / 文字），支持画笔粗细与颜色。状态机与光栅化导出见 `docs/02-interaction-engine.md`「PinWindow 批注状态机与光栅化导出」。
+
+### 图层结构（`RootGrid`）
+- `PinBorder`（边框层，`IsHitTestVisible=False`）—— 不变。
+- `ContentRoot`（`Grid`，`Margin=border`，`Background={x:Null}`）—— **`RenderTargetBitmap` 导出根**。`Background={x:Null}` 使本层不拦截命中，None 模式左键击穿到 Window 走 `DragMove`。
+  - `PinImage`（`Margin=0`，`IsHitTestVisible=False`，保留 Scale+Rotate / Shadow）。
+  - `AnnotationCanvas`（`Background=Transparent`，`IsHitTestVisible` 按 `EditMode` 与批注模式开关切换）—— 批注绘制层，铺满 `ContentRoot` 即图片视觉区，与底图 1:1 对齐。
+- `AnnotationToolbar`（`Border→StackPanel`，右上角悬浮）—— **在 `ContentRoot` 之外，不参与导出**。
+
+### 默认外观（可配置）
+- **默认显示边界**：`PinSettings.DefaultShowBorder`（默认 true）—— 钉图时默认开启 2px 边框（向外生长）。右键「显示边界」初始勾选与之同步。
+- **默认批注模式**：`PinSettings.DefaultAnnotationMode`（默认 false）—— 钉图时默认是否开启批注模式。两项均在设置中心「贴图」页编辑，下次钉图生效。
+
+### 工具栏（仅批注模式开启时 Hover 显隐）
+- **批注模式开关**：右键「批注 ▸ 批注模式」勾选项切换。关闭时工具栏完全不存在（`Opacity=0` 且 `IsHitTestVisible=False`，Hover 不触发），Canvas 命中关闭、左键回退 `DragMove`。开启时才进入 Hover 显隐。
+- **Hover 触发**：批注模式开启后，鼠标进入窗口 → 工具栏 `Opacity` 淡入（0→1，0.15s）并 `IsHitTestVisible=True`；移出 → 淡出并 `IsHitTestVisible=False`。默认画面绝对干净。
+- **布局**：`StackPanel Orientation=Horizontal`：指针 / 画框 / 画圆 / 箭头 / 文字 ｜ 画笔粗细（细2/中4/粗6）｜ 颜色预设（红/黄/蓝/绿/白）。每个按钮带 `ToolTip` 说明。
+- **样式**：`FlatIconButton`（图标 `RadioButton`，选中 Accent 底；画笔粗细复用此样式，实例覆盖 `GroupName`/`FontFamily`/`FontSize`）+ `FlatColorSwatch`（圆形色块 `RadioButton`），集中定义于 `ThemeStyles.xaml`（禁止内联）。
+- **坐标空间**：视图空间（WYSIWYG）—— 批注绘制在 Canvas 局部坐标，导出即所见。
+
+> `ApplyWindowSize` 改动：原 `PinImage.Margin = border` 改为 `ContentRoot.Margin = border`，`PinImage` 改 `Margin=0`。旋转 / 边框外扩逻辑不变。

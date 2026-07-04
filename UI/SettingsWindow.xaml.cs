@@ -63,6 +63,8 @@ public partial class SettingsWindow : Window
         PinShadowBlurBox.Text = _pin.ShadowBlurRadius.ToString(CultureInfo.InvariantCulture);
         PinRotationStepBox.Text = _pin.RotationStepDegrees.ToString(CultureInfo.InvariantCulture);
         PinDefaultOpacityBox.Text = _pin.DefaultOpacity.ToString(CultureInfo.InvariantCulture);
+        PinDefaultShowBorderBox.IsChecked = _pin.DefaultShowBorder;
+        PinDefaultAnnotationModeBox.IsChecked = _pin.DefaultAnnotationMode;
     }
 
     private void WireColorPreviews()
@@ -141,8 +143,10 @@ public partial class SettingsWindow : Window
         _pin.ShadowBlurRadius = double.Parse(PinShadowBlurBox.Text, CultureInfo.InvariantCulture);
         _pin.RotationStepDegrees = double.Parse(PinRotationStepBox.Text, CultureInfo.InvariantCulture);
         _pin.DefaultOpacity = double.Parse(PinDefaultOpacityBox.Text, CultureInfo.InvariantCulture);
+        _pin.DefaultShowBorder = PinDefaultShowBorderBox.IsChecked == true;
+        _pin.DefaultAnnotationMode = PinDefaultAnnotationModeBox.IsChecked == true;
 
-        // Persist: reattach all four groups (a wake may have replaced Settings) then save.
+        // Persist: reattach all four groups then save.
         var s = SettingsManager.Instance.Settings;
         s.Action = _action;
         s.Snipping = _snipping;

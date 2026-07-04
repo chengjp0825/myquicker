@@ -42,7 +42,7 @@
 - **钩子委托必须存字段（`_hookProc`）防 GC 回收**，否则 user32 回调野指针会崩进程。
 
 ### 拦截逻辑（`HookCallback`）
-1. **`WM_MOUSEMOVE` 旁观分支**（永不拦截，始终 `CallNextHookEx`）：仅在 `WakeupMessage == WAKEUP_CIRCLE_GESTURE` 时入队 `(POINT, Timestamp=Environment.TickCount64)` 到 `_moveHistory`，`PruneMoveHistory` 剔除 >800ms 老点；样本数 ≥8 时复制到复用缓冲 `_pointsBuffer` 调 `GestureHelper.IsCircle`，命中即清空队列并 `Dispatcher.BeginInvoke(OnWakeupClick)`。
+1. **`WM_MOUSEMOVE` 旁观分支**（永不拦截，始终 `CallNextHookEx`）：仅在 `WakeupMessage == WAKEUP_CIRCLE_GESTURE` 时入队 `(POINT, Timestamp=Environment.TickCount64)` 到 `_moveHistory`，`PruneMoveHistory` 剔除 >800ms 老点；样本数 ≥8 且距上次检测 ≥30ms 时（**节流**，避免每个 mousemove 都复制历史 + 跑 `Atan2` 拖慢钩子线程致鼠标卡顿）复制到复用缓冲 `_pointsBuffer` 调 `GestureHelper.IsCircle`，命中即清空队列并 `Dispatcher.BeginInvoke(OnWakeupClick)`。
 2. 跟踪左/右/非客户区/中/侧键按下；任一按下即 `Dispatcher.BeginInvoke(OnAnyMouseDown)`（供 UI 检测菜单外点击）。
 3. 若 `msg == ActionSettings.WakeupMessage`：侧键（`WM_XBUTTONDOWN`）还需高位字 `mouseData >> 16` 等于 `XButtonData`；命中即 `Dispatcher.BeginInvoke(OnWakeupClick)` 并 `return (IntPtr)1` 吞键；否则 `CallNextHookEx`。
 
@@ -99,3 +99,23 @@
 - **资源释放**：`ScreenshotWindow.OnMouseLeftButtonUp` try/finally 保证 `Close()` / `ReleaseMouseCapture`（无论是否抛异常）。
 - **原子配置**：`SettingsManager.Save` tmp+`File.Move` 原子覆盖，防断电/崩溃截断；脏 JSON 备份 `.bak` 后回退默认值，不丢失坏文件。详见 `docs/01-architecture-and-config.md`「配置系统」。
 - **钩子时效**：`HookCallback` 异步派发 UI/IO，<100ms 返回，防 `LowLevelHooksTimeout` 静默摘钩。
+
+## 8. PinWindow 批注状态机与光栅化导出
+
+### 8.1 批注模式与状态机（`EditMode`）
+`PinWindow` 定义 `EditMode { None, Rect, Circle, Arrow, Text }`。批注模式由右键「批注 ▸ 批注模式」开关控制（默认取自 `PinSettings.DefaultAnnotationMode`）。`AnnotationCanvas.IsHitTestVisible = 批注模式开启 && mode != None`；批注模式关闭时工具栏不存在、Canvas 击穿、左键回退 `DragMove`。
+
+- **None**：Canvas 击穿，左键落到 Window `DragMove`（拖拽 / 双击关闭不变）。
+- **Rect**：`PreviewMouseDown` 起点建临时 `Rectangle`（`Stretch=Fill`），`PreviewMouseMove` 实时 `min/abs` 归一化宽高（支持反向拖拽），`PreviewMouseUp` 定型（`Stroke` = 当前颜色，`StrokeThickness` = 画笔粗细，`Fill=Transparent`）。
+- **Circle**：`PreviewMouseDown` 起点建临时 `Ellipse`（`Stretch=Fill`），`PreviewMouseMove` 实时取 `min(|dx|,|dy|)` 作为直径（**真圆**，从起点向拖拽方向扩展），`PreviewMouseUp` 定型；直径 <3px 视为误触移除。
+- **Arrow**：`PreviewMouseDown` 起点建临时 `Path`，`PreviewMouseMove` 实时重建几何（主线 + 末端 V 形箭头，箭头长 = max(8, 粗细×3)），`PreviewMouseUp` 定型；长度 <3px 视为误触移除。
+- **Text**：`PreviewMouseDown` 在点击处生成可编辑 `TextBox`（`Background=Transparent` / `BorderThickness=0`），`LostFocus` 时转固定 `TextBlock`（保留字体 / 颜色 / 位置）；空文本移除。
+
+> 坐标空间 = 视图空间（WYSIWYG）：批注绘制在 Canvas 局部坐标，与图片视觉区 1:1，不随 `PinImage.RenderTransform` 旋转。批注仅作覆盖层保留，不随旋转/镜像变换；需保存时右键「复制图片」/「另存为」光栅化导出。
+
+### 8.2 `RenderTargetBitmap` 光栅化导出
+复制 / 另存为 / 作为文件打开**统一改走光栅化**，弃用直接提取 `_source`：
+1. **摘阴影**：渲染前 `PinImage.Effect = null` + `InvalidateVisual`，渲染后恢复原 `DropShadowEffect` 实例（防阴影烤入导出图）。
+2. **DPI 缩放**（关键）：取 `VisualTreeHelper.GetDpi(ContentRoot).DpiScaleX/Y`，像素维度 = `ContentRoot.ActualWidth/Height × dpiScale`，按系统 DPI 标记 `DpiX/DpiY`，确保 1:1 物理像素光栅化。
+3. **渲染根**：`rtb.Render(ContentRoot)` —— 仅图片 + 批注，天然排除 `AnnotationToolbar`（在 `ContentRoot` 外）与 `PinBorder`。
+4. **输出**：`rtb` 即新 `BitmapSource`，`Freeze()` 后写入剪贴板 / `PngBitmapEncoder` 落盘。

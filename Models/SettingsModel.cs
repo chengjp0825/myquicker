@@ -100,4 +100,10 @@ public class PinSettings
 
     /// <summary>贴图默认不透明度。</summary>
     public double DefaultOpacity { get; set; } = 1.0;
+
+    /// <summary>贴图默认是否显示边界（钉图时默认开启 2px 边框，向外生长）。</summary>
+    public bool DefaultShowBorder { get; set; } = true;
+
+    /// <summary>贴图默认是否开启批注模式（Hover 工具栏）。默认关闭。</summary>
+    public bool DefaultAnnotationMode { get; set; } = false;
 }
