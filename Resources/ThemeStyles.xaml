@@ -23,7 +23,7 @@
     <Thickness    x:Key="MenuPadding">12</Thickness>
     <Thickness    x:Key="MenuButtonPadding">14,8</Thickness>
     <Thickness    x:Key="ActionButtonMargin">0,4</Thickness>
-    <CornerRadius x:Key="MenuButtonCornerRadius">8</CornerRadius>
+    <CornerRadius x:Key="MenuButtonCornerRadius">10</CornerRadius>
     <CornerRadius x:Key="ActionButtonCornerRadius">6</CornerRadius>
     <sys:Double   x:Key="MenuButtonFontSize">15</sys:Double>
     <sys:Double   x:Key="ActionButtonMinWidth">180</sys:Double>
@@ -36,17 +36,27 @@
     <Style x:Key="MenuButtonStyle" TargetType="Button">
         <Setter Property="Foreground" Value="White" />
         <Setter Property="Background" Value="{DynamicResource MenuButtonBackgroundBrush}" />
-        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="#15FFFFFF" />
         <Setter Property="FontSize" Value="{StaticResource MenuButtonFontSize}" />
         <Setter Property="Padding" Value="{StaticResource MenuButtonPadding}" />
         <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <ScaleTransform ScaleX="1" ScaleY="1" />
+            </Setter.Value>
+        </Setter>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Bd"
                             Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{StaticResource MenuButtonCornerRadius}"
-                            Padding="{TemplateBinding Padding}">
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center" />
                     </Border>
@@ -54,11 +64,39 @@
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bd" Property="Background"
                                     Value="{DynamicResource MenuButtonHoverBackgroundBrush}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="#25FFFFFF" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#20FFFFFF" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                              To="1.05" Duration="0:0:0.12" />
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                              To="1.05" Duration="0:0:0.12" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                              To="1" Duration="0:0:0.12" />
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                              To="1" Duration="0:0:0.12" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <!-- 设置中心侧边栏导航项（Fluent：选中浅蓝底 + Accent 指示条与文字；hover 丝滑淡入） -->
