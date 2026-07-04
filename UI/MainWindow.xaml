@@ -3,7 +3,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:MyQuicker.UI"
         xmlns:models="clr-namespace:MyQuicker.Models"
         mc:Ignorable="d"
         WindowStyle="None"
@@ -12,41 +11,76 @@
         Topmost="True"
         ShowInTaskbar="False"
         WindowStartupLocation="Manual">
-    <!-- Width/Height/Background/CornerRadius 由 code-behind 从 SettingsModel.Menu 注入；
-         按钮样式 MenuButtonStyle 与公共尺寸来自 Resources/ThemeStyles.xaml。 -->
-    <Border x:Name="RootBorder"
-            Padding="{StaticResource MenuPadding}">
+    
+    <Border x:Name="RootBorder" Padding="12">
         <Grid>
-            <ItemsControl x:Name="ActionsControl"
-                          HorizontalAlignment="Center"
-                          VerticalAlignment="Center">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <StackPanel Orientation="Vertical" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="{x:Type models:ActionItem}">
-                        <Button Content="{Binding Name}"
-                                Click="ActionButton_Click"
-                                Style="{StaticResource MenuButtonStyle}"
-                                Margin="{StaticResource ActionButtonMargin}"
-                                MinWidth="{StaticResource ActionButtonMinWidth}" />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />    <!-- 方块矩阵区 -->
+                <RowDefinition Height="Auto" /> <!-- 底部设置区 -->
+            </Grid.RowDefinitions>
 
-            <Button x:Name="SettingsButton"
-                    Click="SettingsButton_Click"
-                    Style="{StaticResource MenuButtonStyle}"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Bottom"
-                    Width="{StaticResource SettingsButtonSize}"
-                    Height="{StaticResource SettingsButtonSize}"
-                    Padding="0"
-                    ToolTip="设置">
-                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" FontSize="14" />
-            </Button>
+            <!-- 1. 动作矩阵区：使用 WrapPanel 让方块自动从左到右换行 -->
+            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl x:Name="ActionsControl" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <!-- WrapPanel 会根据窗口宽度自动折行，形成完美的网格 -->
+                            <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type models:ActionItem}">
+                            <!-- 固定大小的方块按钮 (例如 72x72) -->
+                            <Button Click="ActionButton_Click"
+                                    Style="{StaticResource MenuButtonStyle}"
+                                    Width="72" Height="72"
+                                    Margin="4"
+                                    Padding="4"
+                                    Cursor="Hand">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*" /> <!-- 上半部分：大图标 -->
+                                        <RowDefinition Height="Auto" /> <!-- 下半部分：文字 -->
+                                    </Grid.RowDefinitions>
+                                    
+                                    <!-- 图标：使用大字号的占位符，居中显示 -->
+                                    <TextBlock Grid.Row="0" 
+                                               FontFamily="Segoe MDL2 Assets" 
+                                               Text="&#xEFA8;" 
+                                               FontSize="26" 
+                                               Opacity="0.9"
+                                               HorizontalAlignment="Center" 
+                                               VerticalAlignment="Center"/>
+                                    
+                                    <!-- 文字：小字号，底部居中，超长则显示省略号 -->
+                                    <TextBlock Grid.Row="1" 
+                                               Text="{Binding Name}" 
+                                               FontSize="12" 
+                                               Opacity="0.85"
+                                               TextAlignment="Center" 
+                                               TextTrimming="CharacterEllipsis" 
+                                               Margin="0,2,0,2" />
+                                </Grid>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- 2. 底部工具区 -->
+            <Border Grid.Row="1" Margin="4,12,4,0" Padding="0,8,0,0" 
+                    BorderBrush="#33FFFFFF" BorderThickness="0,1,0,0">
+                <Button x:Name="SettingsButton"
+                        Click="SettingsButton_Click"
+                        Style="{StaticResource MenuButtonStyle}"
+                        HorizontalAlignment="Right"
+                        Width="28" Height="28"
+                        Padding="0"
+                        ToolTip="设置">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" FontSize="13" />
+                </Button>
+            </Border>
         </Grid>
     </Border>
 </Window>
