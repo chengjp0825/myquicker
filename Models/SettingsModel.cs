@@ -39,6 +39,19 @@ public class ActionSettings
     public List<ActionItem> Actions { get; set; } = new();
 }
 
+/// <summary>截图结算后的动作。Per SPEC 8B。</summary>
+public enum SnippingAfterScreenshot
+{
+    /// <summary>钉为贴图并复制到剪贴板（默认）。</summary>
+    PinAndCopy = 0,
+
+    /// <summary>仅复制到剪贴板，不钉贴图。</summary>
+    CopyOnly = 1,
+
+    /// <summary>仅钉为贴图，不写剪贴板。</summary>
+    PinOnly = 2,
+}
+
 /// <summary>截屏覆盖层参数。Per SPEC 8B。</summary>
 public class SnippingSettings
 {
@@ -51,11 +64,11 @@ public class SnippingSettings
     /// <summary>选区寻边红框颜色。</summary>
     public string BorderColor { get; set; } = "#FF0000";
 
-    /// <summary>选区寻边红框厚度（px）。</summary>
-    public int BorderThickness { get; set; } = 2;
+    // 红框厚度（2px）与覆盖层背景色（Black）已硬编码到 ScreenshotWindow，不再可配——
+    // 默认值对几乎所有用户都正确，暴露后仅增加噪音。
 
-    /// <summary>覆盖层窗口背景色。</summary>
-    public string OverlayBackground { get; set; } = "Black";
+    /// <summary>截图结算后的动作（钉贴图 / 写剪贴板 / 两者）。Per SPEC 8B。</summary>
+    public SnippingAfterScreenshot AfterScreenshot { get; set; } = SnippingAfterScreenshot.PinAndCopy;
 }
 
 /// <summary>唤醒菜单参数。</summary>
@@ -83,20 +96,11 @@ public class MenuSettings
 /// <summary>贴图窗口参数。Per SPEC 8C。</summary>
 public class PinSettings
 {
-    /// <summary>贴图窗口最小宽度（px）。</summary>
-    public double MinWidth { get; set; } = 40;
-
-    /// <summary>贴图窗口最小高度（px）。</summary>
-    public double MinHeight { get; set; } = 40;
+    // 最小宽高（40×40）、阴影模糊半径（14）、旋转步进（90°）已硬编码到 PinWindow，不再可配——
+    // 默认值对几乎所有用户都正确；且旋转步进非 90° 会破坏 90/270 宽高互换逻辑（footgun）。
 
     /// <summary>"显示边界"开启时的边框颜色。</summary>
     public string BorderColor { get; set; } = "Gray";
-
-    /// <summary>贴图阴影模糊半径。</summary>
-    public double ShadowBlurRadius { get; set; } = 14;
-
-    /// <summary>每次旋转的步进角度（度）。</summary>
-    public double RotationStepDegrees { get; set; } = 90;
 
     /// <summary>贴图默认不透明度。</summary>
     public double DefaultOpacity { get; set; } = 1.0;
@@ -106,4 +110,10 @@ public class PinSettings
 
     /// <summary>贴图默认是否开启批注模式（Hover 工具栏）。默认关闭。</summary>
     public bool DefaultAnnotationMode { get; set; } = false;
+
+    /// <summary>贴图默认是否置顶。默认开启。Per SPEC 8C。</summary>
+    public bool DefaultTopmost { get; set; } = true;
+
+    /// <summary>贴图默认是否显示阴影。默认开启。Per SPEC 8C。</summary>
+    public bool DefaultShowShadow { get; set; } = true;
 }

@@ -27,8 +27,8 @@
 - `ActionItem` —— 实现 `INotifyPropertyChanged` 供 DataGrid 双向绑定。
 - `SettingsModel` —— 多层级 POCO，默认值对齐重构前硬编码：
   - `ActionSettings`：含 `public const int WAKEUP_CIRCLE_GESTURE = -1;`（纯轨迹画圈唤醒的 `WakeupMessage` 哨兵值）+ `XButtonData`。
-  - `SnippingSettings` / `MenuSettings`：各组颜色 / 尺寸 / 阈值。
-  - `PinSettings`：颜色 / 尺寸 / 阴影模糊半径 / 旋转步进 / `DefaultShowBorder`（默认显示边界）/ `DefaultAnnotationMode`（默认批注模式）。
+  - `SnippingSettings`（颜色 / 阈值 / `AfterScreenshot` 截图后行为）/ `MenuSettings`（颜色 / 尺寸 / 圆角）。
+  - `PinSettings`：颜色 / `DefaultOpacity` / `DefaultShowBorder`（默认显示边界）/ `DefaultAnnotationMode`（默认批注模式）/ `DefaultTopmost`（默认置顶）/ `DefaultShowShadow`（默认显示阴影）。
 
 ### `/Resources` —— 共享 XAML 资源
 `ThemeStyles.xaml` 公共主题资源字典，由 `App.xaml` 合并，各窗口以 `StaticResource` 引用。详见 `docs/03-ui-and-styling.md`。
@@ -51,21 +51,21 @@
 - `LoadForEdit()`：返回深拷贝，供 `SettingsWindow` 编辑隔离。
 - `UpdateCache(action)`：`SettingsWindow` 保存时同步缓存（落盘由 `SettingsManager.Save` 统一完成）。
 
-### `SettingsWindow` 5 页编辑
-常规（唤醒键）/ 动作管理（DataGrid）/ 截屏 / 菜单 / 贴图，覆盖四组全部字段。"应用设置"时四组写回 `SettingsManager.Instance.Settings` + `Save()`，并调 `MainWindow.ApplyMenuSettings` 即时刷新菜单 + `RefreshActions` 重绑动作 + `ActionStore.UpdateCache` 同步缓存（`Menu`/`Action` 即时生效；`Snipping`/`Pin` 分别在下次截图/钉图时生效）。颜色字段 hex 文本框 + 实时预览；`Validate` 全字段校验，非法 `MessageBox` 拦截。排版细节见 `docs/03-ui-and-styling.md`。
+### `SettingsWindow` 4 页编辑
+常规（唤醒键）/ 动作管理（DataGrid）/ 截屏与贴图 / 菜单，覆盖四组全部字段（截屏与贴图合并页内用分区标题分隔两组）。"应用设置"时四组写回 `SettingsManager.Instance.Settings` + `Save()`，并调 `MainWindow.ApplyMenuSettings` 即时刷新菜单 + `RefreshActions` 重绑动作 + `ActionStore.UpdateCache` 同步缓存（`Menu`/`Action` 即时生效；`Snipping`/`Pin` 分别在下次截图/钉图时生效）。颜色字段 hex 文本框 + 实时预览；`Validate` 全字段校验，非法 `MessageBox` 拦截。排版细节见 `docs/03-ui-and-styling.md`。
 
 ## 3. 统一配置三层规范
 
 重构后所有"硬编码"按职责分三层，**严禁再散落到 code-behind / XAML 字面量**：
 
 ### JSON（`SettingsModel` / `settings.json`）
-关键视觉与交互参数（`Snipping` / `Menu` / `Pin` 的颜色、尺寸、阈值、阴影模糊半径、旋转步进等）。各窗口构造函数 `InitializeComponent()` 后读 `SettingsManager.Instance.Settings.{组}` 动态赋值给命名控件属性；按钮背景色等 Style 内部值经 `{DynamicResource}` 注入（窗口 `Resources[key] = BrushHelper.ToBrush(...)`）。
+关键视觉与交互参数（`Snipping` / `Menu` / `Pin` 的颜色、尺寸、阈值、`AfterScreenshot` 截图后行为、`DefaultTopmost` / `DefaultShowShadow` 等）。各窗口构造函数 `InitializeComponent()` 后读 `SettingsManager.Instance.Settings.{组}` 动态赋值给命名控件属性；按钮背景色等 Style 内部值经 `{DynamicResource}` 注入（窗口 `Resources[key] = BrushHelper.ToBrush(...)`）。
 
 ### ThemeStyles.xaml（`StaticResource`）
 纯布局 / 公共样式。由 `App.xaml` 合并。**不写入 JSON**。控件清单见 `docs/03-ui-and-styling.md`。
 
 ### 保留内联
-窗口独有视觉物理反馈（如 `PinWindow` 阴影 Depth/Opacity/Direction/Color、`PinBorderThickness=2`、不透明度菜单预设）与唯一面板布局约束（如 `SettingsWindow` 750×500），不提取。
+窗口独有视觉物理反馈（如 `PinWindow` 阴影 Depth/Opacity/Direction/Color/`BlurRadius=14`、`MinWidth/MinHeight=40`、`RotationStep=90°`、`PinBorderThickness=2`、不透明度菜单预设；`ScreenshotWindow` `BorderThickness=2` / `Background=Black`）与唯一面板布局约束（如 `SettingsWindow` 750×500），不提取。
 
 > **新增可配置项决策树**：
 > - 关键视觉/交互参数 → 加到 `SettingsModel` 对应组 + 默认值 + code-behind 注入；

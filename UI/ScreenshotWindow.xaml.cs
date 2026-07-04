@@ -8,6 +8,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using MyQuicker.Interop;
+using MyQuicker.Models;
 using MyQuicker.Services;
 using static MyQuicker.Interop.NativeMethods;
 using Cursors = System.Windows.Input.Cursors;
@@ -57,11 +58,12 @@ public partial class ScreenshotWindow : Window
         ScreenGeometry.Rect = new Rect(0, 0, bounds.Width, bounds.Height);
 
         // 关键视觉参数从统一配置注入（Per SPEC 重构 Step 3）。
+        // 红框厚度（2px）与覆盖层背景色（Black）已硬编码，不再可配。
         var snipping = SettingsManager.Instance.Settings.Snipping;
-        Background = BrushHelper.ToBrush(snipping.OverlayBackground);
+        Background = System.Windows.Media.Brushes.Black;
         MaskPath.Fill = BrushHelper.ToBrush(snipping.MaskColor);
         HighlightBorder.BorderBrush = BrushHelper.ToBrush(snipping.BorderColor);
-        HighlightBorder.BorderThickness = new Thickness(snipping.BorderThickness);
+        HighlightBorder.BorderThickness = new Thickness(2);
     }
 
     protected override void OnPreviewKeyDown(KeyEventArgs e)
@@ -244,20 +246,29 @@ public partial class ScreenshotWindow : Window
         var crop = new CroppedBitmap(_baseImage, new Int32Rect(x, y, w, h));
         crop.Freeze();
 
-        // 结算：写剪贴板 + 钉一张贴图常驻窗口。
+        // 结算：按 AfterScreenshot 决定写剪贴板 / 钉贴图 / 两者。
         // 选区左上角的绝对屏幕坐标 = 虚拟屏原点 + 窗口本地坐标，让贴图落在截图原位。
         // 用 Show()（非模态）打开，确保截图罩 Close() 后贴图窗口仍存活。
-        try
+        var after = SettingsManager.Instance.Settings.Snipping.AfterScreenshot;
+
+        if (after != SnippingAfterScreenshot.PinOnly)
         {
-            Clipboard.SetImage(crop);
-        }
-        catch (Exception ex)
-        {
-            // 剪贴板被其它进程独占（RDP/剪贴板管理器）：不阻断流程，贴图仍可钉出。
-            Debug.WriteLine($"ERROR: 写剪贴板失败: {ex.Message}");
+            try
+            {
+                Clipboard.SetImage(crop);
+            }
+            catch (Exception ex)
+            {
+                // 剪贴板被其它进程独占（RDP/剪贴板管理器）：不阻断流程。
+                // TODO: 下一批加 toast 提示用户剪贴板写入失败。
+                Debug.WriteLine($"ERROR: 写剪贴板失败: {ex.Message}");
+            }
         }
 
-        new PinWindow(crop, _bounds.X + x, _bounds.Y + y).Show();
+        if (after != SnippingAfterScreenshot.CopyOnly)
+        {
+            new PinWindow(crop, _bounds.X + x, _bounds.Y + y).Show();
+        }
     }
 
     /// <summary>寻边失败时清空选区：清 _currentSelection、撤回镂空与红框。</summary>

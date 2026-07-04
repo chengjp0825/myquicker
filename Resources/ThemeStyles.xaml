@@ -216,6 +216,14 @@
         <Setter Property="Margin" Value="0,2,0,0" />
     </Style>
 
+    <!-- 分区小标题：合并页内分组（如「截屏」「贴图」），字号介于页面标题(22)与字段标题(13)之间 -->
+    <Style x:Key="SectionHeader" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource FieldTitleBrush}" />
+        <Setter Property="Margin" Value="0,0,0,10" />
+    </Style>
+
     <!-- 扁平 TextBox：去 3D 边框、圆角、聚焦变 Accent -->
     <Style x:Key="FlatTextBox" TargetType="TextBox">
         <Setter Property="Background" Value="{StaticResource ControlBgBrush}" />

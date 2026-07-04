@@ -37,7 +37,7 @@
 > `sys:` 指令登记表与新增指引详见 [`docs/01-architecture-and-config.md`](docs/01-architecture-and-config.md)；容错细节见 [`docs/02-interaction-engine.md`](docs/02-interaction-engine.md)。
 
 ### 4.4 Configuration System (`SettingsManager` / `ActionStore`)
-`SettingsManager` 全局单例，统一配置中心，读写 `SettingsModel` 四组（`Action` / `Snipping` / `Menu` / `Pin`）到 `settings.json`。`ActionStore` 静态门面持动作内存缓存（启动载入，唤醒零 IO，编辑深拷贝隔离）。`SettingsWindow` 5 页编辑全部四组字段，应用即落盘 + 刷新缓存 + 重绑菜单。
+`SettingsManager` 全局单例，统一配置中心，读写 `SettingsModel` 四组（`Action` / `Snipping` / `Menu` / `Pin`）到 `settings.json`。`ActionStore` 静态门面持动作内存缓存（启动载入，唤醒零 IO，编辑深拷贝隔离）。`SettingsWindow` 4 页编辑全部四组字段（截屏与贴图合并页内分区），应用即落盘 + 刷新缓存 + 重绑菜单。
 
 > 原子写、`.bak` 备份、旧配置迁移、统一配置三层（JSON / ThemeStyles / 内联）详见 [`docs/01-architecture-and-config.md`](docs/01-architecture-and-config.md)。
 

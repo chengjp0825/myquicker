@@ -29,11 +29,9 @@
                              Style="{StaticResource NavRadioButton}" IsChecked="True" />
                 <RadioButton x:Name="NavActions" Content="动作管理"
                              Style="{StaticResource NavRadioButton}" />
-                <RadioButton x:Name="NavSnipping" Content="截屏"
+                <RadioButton x:Name="NavSnipping" Content="截屏与贴图"
                              Style="{StaticResource NavRadioButton}" />
                 <RadioButton x:Name="NavMenu" Content="菜单"
-                             Style="{StaticResource NavRadioButton}" />
-                <RadioButton x:Name="NavPin" Content="贴图"
                              Style="{StaticResource NavRadioButton}" />
             </StackPanel>
         </Border>
@@ -114,14 +112,16 @@
                     </DataGrid>
                 </Grid>
 
-                <!-- Page 3: Snipping -->
+                <!-- Page 3: Snipping & Pin -->
                 <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
                               Visibility="{Binding IsChecked, ElementName=NavSnipping, Converter={StaticResource BoolToVis}}">
                     <StackPanel Margin="0,0,8,0">
-                        <TextBlock Text="截屏" FontSize="22" FontWeight="SemiBold"
+                        <TextBlock Text="截屏与贴图" FontSize="22" FontWeight="SemiBold"
                                    Foreground="{StaticResource FieldTitleBrush}" Margin="0,0,0,4" />
-                        <TextBlock Text="智能寻边与拖拽选区的视觉参数。"
+                        <TextBlock Text="智能寻边选区与贴图窗口的视觉参数。"
                                    FontSize="13" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,18" />
+
+                        <TextBlock Text="截屏" Style="{StaticResource SectionHeader}" />
 
                         <Grid Margin="0,0,0,12">
                             <Grid.ColumnDefinitions>
@@ -136,19 +136,6 @@
                                 <TextBox x:Name="SnippingBorderColorBox" Style="{StaticResource FlatTextBox}" Width="158" />
                                 <Border x:Name="SnippingBorderColorPreview" Style="{StaticResource ColorSwatch}" />
                             </StackPanel>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="200" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldTitle}" Text="红框厚度" />
-                                <TextBlock Style="{StaticResource FieldDesc}" Text="单位 px" />
-                            </StackPanel>
-                            <TextBox Grid.Column="1" x:Name="SnippingBorderThicknessBox"
-                                     Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
                         </Grid>
 
                         <Grid Margin="0,0,0,12">
@@ -172,12 +159,47 @@
                                 <ColumnDefinition Width="200" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldTitle}" Text="覆盖层背景色" />
-                                <TextBlock Style="{StaticResource FieldDesc}" Text="截图罩窗口的底色" />
+                                <TextBlock Style="{StaticResource FieldTitle}" Text="点击/拖拽阈值" />
+                                <TextBlock Style="{StaticResource FieldDesc}" Text="位移超过此值即升级为拖拽（DIP）" />
+                            </StackPanel>
+                            <TextBox Grid.Column="1" x:Name="SnippingDragThresholdBox"
+                                     Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
+                        </Grid>
+
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="200" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Style="{StaticResource FieldTitle}" Text="截图后" />
+                                <TextBlock Style="{StaticResource FieldDesc}" Text="结算时的动作" />
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" x:Name="AfterScreenshotCombo"
+                                      Style="{StaticResource FlatComboBox}"
+                                      Width="200" HorizontalAlignment="Right" SelectedIndex="0">
+                                <ComboBoxItem Content="钉为贴图并复制" />
+                                <ComboBoxItem Content="仅复制到剪贴板" />
+                                <ComboBoxItem Content="仅钉为贴图" />
+                            </ComboBox>
+                        </Grid>
+
+                        <!-- 贴图分组 -->
+                        <Border Height="1" Background="{StaticResource DividerBrush}" Margin="0,18,0,14" />
+                        <TextBlock Text="贴图" Style="{StaticResource SectionHeader}" />
+
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="200" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Style="{StaticResource FieldTitle}" Text="边界颜色" />
+                                <TextBlock Style="{StaticResource FieldDesc}" Text="“显示边界”开启时的描边色" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBox x:Name="SnippingOverlayBgBox" Style="{StaticResource FlatTextBox}" Width="158" />
-                                <Border x:Name="SnippingOverlayBgPreview" Style="{StaticResource ColorSwatch}" />
+                                <TextBox x:Name="PinBorderColorBox" Style="{StaticResource FlatTextBox}" Width="158" />
+                                <Border x:Name="PinBorderColorPreview" Style="{StaticResource ColorSwatch}" />
                             </StackPanel>
                         </Grid>
 
@@ -187,11 +209,63 @@
                                 <ColumnDefinition Width="200" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldTitle}" Text="点击/拖拽阈值" />
-                                <TextBlock Style="{StaticResource FieldDesc}" Text="位移超过此值即升级为拖拽（DIP）" />
+                                <TextBlock Style="{StaticResource FieldTitle}" Text="默认不透明度" />
+                                <TextBlock Style="{StaticResource FieldDesc}" Text="0~1 之间的数值" />
                             </StackPanel>
-                            <TextBox Grid.Column="1" x:Name="SnippingDragThresholdBox"
+                            <TextBox Grid.Column="1" x:Name="PinDefaultOpacityBox"
                                      Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
+                        </Grid>
+
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="200" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Style="{StaticResource FieldTitle}" Text="默认显示边界" />
+                                <TextBlock Style="{StaticResource FieldDesc}" Text="钉图时默认开启边框" />
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" x:Name="PinDefaultShowBorderBox"
+                                      VerticalAlignment="Center" HorizontalAlignment="Right" />
+                        </Grid>
+
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="200" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Style="{StaticResource FieldTitle}" Text="默认批注模式" />
+                                <TextBlock Style="{StaticResource FieldDesc}" Text="钉图时默认开启批注（Hover 工具栏）" />
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" x:Name="PinDefaultAnnotationModeBox"
+                                      VerticalAlignment="Center" HorizontalAlignment="Right" />
+                        </Grid>
+
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="200" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Style="{StaticResource FieldTitle}" Text="默认置顶" />
+                                <TextBlock Style="{StaticResource FieldDesc}" Text="钉图时默认置顶在前" />
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" x:Name="PinDefaultTopmostBox"
+                                      VerticalAlignment="Center" HorizontalAlignment="Right" />
+                        </Grid>
+
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="200" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Style="{StaticResource FieldTitle}" Text="默认显示阴影" />
+                                <TextBlock Style="{StaticResource FieldDesc}" Text="钉图时默认开启投影" />
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" x:Name="PinDefaultShowShadowBox"
+                                      VerticalAlignment="Center" HorizontalAlignment="Right" />
                         </Grid>
                     </StackPanel>
                 </ScrollViewer>
@@ -287,123 +361,6 @@
                                 <TextBox x:Name="MenuButtonHoverBgBox" Style="{StaticResource FlatTextBox}" Width="158" />
                                 <Border x:Name="MenuButtonHoverBgPreview" Style="{StaticResource ColorSwatch}" />
                             </StackPanel>
-                        </Grid>
-                    </StackPanel>
-                </ScrollViewer>
-
-                <!-- Page 5: Pin -->
-                <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
-                              Visibility="{Binding IsChecked, ElementName=NavPin, Converter={StaticResource BoolToVis}}">
-                    <StackPanel Margin="0,0,8,0">
-                        <TextBlock Text="贴图" FontSize="22" FontWeight="SemiBold"
-                                   Foreground="{StaticResource FieldTitleBrush}" Margin="0,0,0,4" />
-                        <TextBlock Text="贴图窗口的尺寸与外观，下次钉图时生效。"
-                                   FontSize="13" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,18" />
-
-                        <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="200" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldTitle}" Text="最小宽度" />
-                                <TextBlock Style="{StaticResource FieldDesc}" Text="单位 px" />
-                            </StackPanel>
-                            <TextBox Grid.Column="1" x:Name="PinMinWidthBox"
-                                     Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
-                        </Grid>
-
-                        <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="200" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldTitle}" Text="最小高度" />
-                                <TextBlock Style="{StaticResource FieldDesc}" Text="单位 px" />
-                            </StackPanel>
-                            <TextBox Grid.Column="1" x:Name="PinMinHeightBox"
-                                     Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
-                        </Grid>
-
-                        <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="200" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldTitle}" Text="边界颜色" />
-                                <TextBlock Style="{StaticResource FieldDesc}" Text="“显示边界”开启时的描边色" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBox x:Name="PinBorderColorBox" Style="{StaticResource FlatTextBox}" Width="158" />
-                                <Border x:Name="PinBorderColorPreview" Style="{StaticResource ColorSwatch}" />
-                            </StackPanel>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="200" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldTitle}" Text="阴影模糊半径" />
-                                <TextBlock Style="{StaticResource FieldDesc}" Text="贴图投影的柔化程度" />
-                            </StackPanel>
-                            <TextBox Grid.Column="1" x:Name="PinShadowBlurBox"
-                                     Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
-                        </Grid>
-
-                        <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="200" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldTitle}" Text="旋转步进" />
-                                <TextBlock Style="{StaticResource FieldDesc}" Text="每次旋转的角度（度）" />
-                            </StackPanel>
-                            <TextBox Grid.Column="1" x:Name="PinRotationStepBox"
-                                     Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
-                        </Grid>
-
-                        <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="200" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldTitle}" Text="默认不透明度" />
-                                <TextBlock Style="{StaticResource FieldDesc}" Text="0~1 之间的数值" />
-                            </StackPanel>
-                            <TextBox Grid.Column="1" x:Name="PinDefaultOpacityBox"
-                                     Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
-                        </Grid>
-
-                        <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="200" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldTitle}" Text="默认显示边界" />
-                                <TextBlock Style="{StaticResource FieldDesc}" Text="钉图时默认开启边框" />
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" x:Name="PinDefaultShowBorderBox"
-                                      VerticalAlignment="Center" HorizontalAlignment="Right" />
-                        </Grid>
-
-                        <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="200" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldTitle}" Text="默认批注模式" />
-                                <TextBlock Style="{StaticResource FieldDesc}" Text="钉图时默认开启批注（Hover 工具栏）" />
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" x:Name="PinDefaultAnnotationModeBox"
-                                      VerticalAlignment="Center" HorizontalAlignment="Right" />
                         </Grid>
                     </StackPanel>
                 </ScrollViewer>

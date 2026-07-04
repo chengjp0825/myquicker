@@ -12,7 +12,7 @@
 - `NavRadioButton` —— Fluent：浅蓝选中底 + Accent 指示条 + 文字变 Accent；hover 0.15s 淡入。
 - `ActionButton` / `FlatTextBox` / `FlatComboBox` / `ColorSwatch`
 - DataGrid 系列：`DataGridColumnHeader` / `DataGridRow` / `DataGridCell`
-- `FieldTitle` / `FieldDesc`
+- `FieldTitle` / `FieldDesc` / `SectionHeader`（合并页分区标题）
 
 > 新增公共样式 → 加到 `ThemeStyles.xaml`；窗口独有视觉物理反馈保留内联（见 `docs/01-architecture-and-config.md`「统一配置三层」）。
 
@@ -40,11 +40,11 @@
 ### 设置入口
 齿轮按钮 `Hide()` 后回调 `OpenSettingsAction`（由 `App` 接到 `SettingsWindow`）。
 
-## 3. SettingsWindow —— Fluent 5 页设置中心
+## 3. SettingsWindow —— Fluent 4 页设置中心
 
 ### 整体
 - 内容区 `#FAFAFA` 画布；左侧边栏 `NavRadioButton`（Fluent：选中浅蓝底 `NavSelectedBrush` + 3px Accent 指示条 + 文字变 Accent；hover 0.15s 淡入）。
-- 5 个页签：常规（唤醒键 `FlatComboBox`）/ 动作管理（扁平 `DataGrid`）/ 截屏 / 菜单 / 贴图。页面切换由 `BooleanToVisibilityConverter` 绑定 `RadioButton.IsChecked`，无代码后置。
+- 4 个页签：常规（唤醒键 `FlatComboBox`）/ 动作管理（扁平 `DataGrid`）/ 截屏与贴图（`SectionHeader` 分区标题分隔两组）/ 菜单。页面切换由 `BooleanToVisibilityConverter` 绑定 `RadioButton.IsChecked`，无代码后置。
 - 唯一面板布局约束：750×500，保留内联。
 
 ### 表单
@@ -66,7 +66,7 @@
 
 ## 4. ScreenshotWindow —— 截屏覆盖层
 
-覆盖层颜色/厚度由 `SettingsModel.Snipping` 注入（构造函数读 `SettingsManager.Instance.Settings.Snipping`，赋值 `MaskPath.Fill` / `HighlightBorder.BorderBrush` / `BorderThickness` / 窗口 `Background`）；`DragThreshold` 取自 `SnippingSettings.DragThreshold`（readonly 字段，双模态状态机逻辑不变）。
+覆盖层颜色由 `SettingsModel.Snipping` 注入（构造函数读 `SettingsManager.Instance.Settings.Snipping`，赋值 `MaskPath.Fill` / `HighlightBorder.BorderBrush`）；红框厚度（2px）与窗口 `Background`（Black）已硬编码，不再可配。`DragThreshold` 取自 `SnippingSettings.DragThreshold`（readonly 字段，双模态状态机逻辑不变）。
 
 ### 三层结构（`RootGrid`）
 1. `BackgroundImage` —— 全屏底图（`Stretch="None"`）；
@@ -85,7 +85,7 @@
 **拖拽模式**（左键按下后位移超阈值）：`CaptureMouse`，用 `min/abs` 归一化起止点矩形，支持反向拖拽。
 
 ### 结算（`SettleSelection`，松开左键时）
-模式 A 智能快照（未拖拽且有红框 → 截红框）/ 模式 B 手动拖拽（截拖拽选区）/ 空点（无红框且未拖拽 → 不操作）。`Math.Clamp` 把裁剪矩形夹取到 base-image 边界 → `CroppedBitmap` 裁剪 → `Freeze` → `Clipboard.SetImage`（try-catch，剪贴板被独占不阻断）→ `new PinWindow(crop, screenX, screenY).Show()` 联动钉图（截图罩关闭后贴图存活）。`OnMouseLeftButtonUp` 用 try/finally 保证 `Close()` 与 `ReleaseMouseCapture`。
+模式 A 智能快照（未拖拽且有红框 → 截红框）/ 模式 B 手动拖拽（截拖拽选区）/ 空点（无红框且未拖拽 → 不操作）。`Math.Clamp` 把裁剪矩形夹取到 base-image 边界 → `CroppedBitmap` 裁剪 → `Freeze`。结算动作由 `SnippingSettings.AfterScreenshot` 决定：`PinAndCopy`（默认）写剪贴板 + 钉贴图 / `CopyOnly` 仅 `Clipboard.SetImage`（try-catch，剪贴板被独占不阻断）/ `PinOnly` 仅 `new PinWindow(crop, screenX, screenY).Show()` 联动钉图（截图罩关闭后贴图存活）。`OnMouseLeftButtonUp` 用 try/finally 保证 `Close()` 与 `ReleaseMouseCapture`。
 
 ESC / 右键取消关闭。
 
@@ -106,7 +106,7 @@ ESC / 右键取消关闭。
 置顶 / 显示阴影 / 显示边界 / 重置大小 / 不透明度（0.3/0.5/0.8/1.0）/ 旋转 / 镜像 / 复制图片 / 另存为… / 作为文件打开 / 关闭。
 
 ### 变换
-- 旋转：`_rotationStep = (_rotationStep + 1) % 4`，`RotationAngle = step * RotationStepDegrees`（默认 90°），90/270 时窗口宽高互换（`ApplyWindowSize`）。
+- 旋转：`_rotationStep = (_rotationStep + 1) % 4`，`RotationAngle = step * 90`（步进固定 90°，原 `RotationStepDegrees` 已移除：非 90° 会破坏 90/270 宽高互换逻辑），90/270 时窗口宽高互换（`ApplyWindowSize`）。
 - 镜像：`ScaleTransform.ScaleX = -1/1`（水平翻转，`RenderTransformOrigin=0.5,0.5` 居中）。
 - 显示边界：`PinBorderThickness` 0↔2，边框向外生长（窗口左上角反向偏移保持图片屏幕坐标不变）。
 - 不透明度：直接设 `Window.Opacity`。
@@ -115,7 +115,7 @@ ESC / 右键取消关闭。
 另存为 / 作为文件打开：`PngBitmapEncoder` 落盘；后者写临时文件后 `UseShellExecute=true` 打开。
 
 ### 参数注入
-由 `SettingsModel.Pin` 注入（`MinWidth` / `MinHeight` / `BorderColor` / `ShadowBlurRadius` / `RotationStepDegrees` / `DefaultOpacity`）；阴影 Depth/Opacity/Direction/Color、`PinBorderThickness=2`、不透明度菜单预设保留内联。
+由 `SettingsModel.Pin` 注入（`BorderColor` / `DefaultOpacity` / `DefaultShowBorder` / `DefaultAnnotationMode` / `DefaultTopmost` / `DefaultShowShadow`）；最小宽高（40×40）、阴影 Depth/Opacity/Direction/Color/`BlurRadius=14`、旋转步进（90°）、`PinBorderThickness=2`、不透明度菜单预设保留内联。
 
 ## 6. PinWindow 批注工具栏与默认外观
 
@@ -130,7 +130,9 @@ ESC / 右键取消关闭。
 
 ### 默认外观（可配置）
 - **默认显示边界**：`PinSettings.DefaultShowBorder`（默认 true）—— 钉图时默认开启 2px 边框（向外生长）。右键「显示边界」初始勾选与之同步。
-- **默认批注模式**：`PinSettings.DefaultAnnotationMode`（默认 false）—— 钉图时默认是否开启批注模式。两项均在设置中心「贴图」页编辑，下次钉图生效。
+- **默认批注模式**：`PinSettings.DefaultAnnotationMode`（默认 false）—— 钉图时默认是否开启批注模式。
+- **默认置顶**：`PinSettings.DefaultTopmost`（默认 true）—— 钉图时默认置顶在前。右键「置顶」初始勾选与之同步。
+- **默认显示阴影**：`PinSettings.DefaultShowShadow`（默认 true）—— 钉图时默认开启投影。右键「显示阴影」初始勾选与之同步。四项均在设置中心「截屏与贴图」页编辑，下次钉图生效。
 
 ### 工具栏（仅批注模式开启时 Hover 显隐）
 - **批注模式开关**：右键「批注 ▸ 批注模式」勾选项切换。关闭时工具栏完全不存在（`Opacity=0` 且 `IsHitTestVisible=False`，Hover 不触发），Canvas 命中关闭、左键回退 `DragMove`。开启时才进入 Hover 显隐。

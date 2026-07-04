@@ -7,7 +7,7 @@ using MyQuicker.Services;
 namespace MyQuicker.UI;
 
 /// <summary>
-/// 设置中心：常规(唤醒键) / 动作管理 / 截屏 / 菜单 / 贴图 五页。
+/// 设置中心：常规(唤醒键) / 动作管理 / 截屏与贴图 / 菜单 四页。
 /// 应用时把全部四组写回 SettingsManager 落盘，并即时把 Menu 组刷到 MainWindow。
 /// </summary>
 public partial class SettingsWindow : Window
@@ -45,8 +45,7 @@ public partial class SettingsWindow : Window
         SnippingDragThresholdBox.Text = _snipping.DragThreshold.ToString(CultureInfo.InvariantCulture);
         SnippingMaskColorBox.Text = _snipping.MaskColor;
         SnippingBorderColorBox.Text = _snipping.BorderColor;
-        SnippingBorderThicknessBox.Text = _snipping.BorderThickness.ToString(CultureInfo.InvariantCulture);
-        SnippingOverlayBgBox.Text = _snipping.OverlayBackground;
+        AfterScreenshotCombo.SelectedIndex = (int)_snipping.AfterScreenshot;
 
         // Menu
         MenuWidthBox.Text = _menu.Width.ToString(CultureInfo.InvariantCulture);
@@ -57,21 +56,18 @@ public partial class SettingsWindow : Window
         MenuButtonHoverBgBox.Text = _menu.ButtonHoverBackground;
 
         // Pin
-        PinMinWidthBox.Text = _pin.MinWidth.ToString(CultureInfo.InvariantCulture);
-        PinMinHeightBox.Text = _pin.MinHeight.ToString(CultureInfo.InvariantCulture);
         PinBorderColorBox.Text = _pin.BorderColor;
-        PinShadowBlurBox.Text = _pin.ShadowBlurRadius.ToString(CultureInfo.InvariantCulture);
-        PinRotationStepBox.Text = _pin.RotationStepDegrees.ToString(CultureInfo.InvariantCulture);
         PinDefaultOpacityBox.Text = _pin.DefaultOpacity.ToString(CultureInfo.InvariantCulture);
         PinDefaultShowBorderBox.IsChecked = _pin.DefaultShowBorder;
         PinDefaultAnnotationModeBox.IsChecked = _pin.DefaultAnnotationMode;
+        PinDefaultTopmostBox.IsChecked = _pin.DefaultTopmost;
+        PinDefaultShowShadowBox.IsChecked = _pin.DefaultShowShadow;
     }
 
     private void WireColorPreviews()
     {
         WireColorPreview(SnippingMaskColorBox, SnippingMaskColorPreview);
         WireColorPreview(SnippingBorderColorBox, SnippingBorderColorPreview);
-        WireColorPreview(SnippingOverlayBgBox, SnippingOverlayBgPreview);
         WireColorPreview(MenuBackgroundBox, MenuBackgroundPreview);
         WireColorPreview(MenuButtonBgBox, MenuButtonBgPreview);
         WireColorPreview(MenuButtonHoverBgBox, MenuButtonHoverBgPreview);
@@ -125,8 +121,7 @@ public partial class SettingsWindow : Window
         _snipping.DragThreshold = double.Parse(SnippingDragThresholdBox.Text, CultureInfo.InvariantCulture);
         _snipping.MaskColor = SnippingMaskColorBox.Text;
         _snipping.BorderColor = SnippingBorderColorBox.Text;
-        _snipping.BorderThickness = int.Parse(SnippingBorderThicknessBox.Text, CultureInfo.InvariantCulture);
-        _snipping.OverlayBackground = SnippingOverlayBgBox.Text;
+        _snipping.AfterScreenshot = (SnippingAfterScreenshot)AfterScreenshotCombo.SelectedIndex;
 
         // Menu
         _menu.Width = double.Parse(MenuWidthBox.Text, CultureInfo.InvariantCulture);
@@ -137,14 +132,12 @@ public partial class SettingsWindow : Window
         _menu.ButtonHoverBackground = MenuButtonHoverBgBox.Text;
 
         // Pin
-        _pin.MinWidth = double.Parse(PinMinWidthBox.Text, CultureInfo.InvariantCulture);
-        _pin.MinHeight = double.Parse(PinMinHeightBox.Text, CultureInfo.InvariantCulture);
         _pin.BorderColor = PinBorderColorBox.Text;
-        _pin.ShadowBlurRadius = double.Parse(PinShadowBlurBox.Text, CultureInfo.InvariantCulture);
-        _pin.RotationStepDegrees = double.Parse(PinRotationStepBox.Text, CultureInfo.InvariantCulture);
         _pin.DefaultOpacity = double.Parse(PinDefaultOpacityBox.Text, CultureInfo.InvariantCulture);
         _pin.DefaultShowBorder = PinDefaultShowBorderBox.IsChecked == true;
         _pin.DefaultAnnotationMode = PinDefaultAnnotationModeBox.IsChecked == true;
+        _pin.DefaultTopmost = PinDefaultTopmostBox.IsChecked == true;
+        _pin.DefaultShowShadow = PinDefaultShowShadowBox.IsChecked == true;
 
         // Persist: reattach all four groups then save.
         var s = SettingsManager.Instance.Settings;
@@ -166,29 +159,18 @@ public partial class SettingsWindow : Window
     {
         if (!double.TryParse(SnippingDragThresholdBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
         { error = "“点击/拖拽阈值”需为数字。"; return false; }
-        if (!int.TryParse(SnippingBorderThicknessBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
-        { error = "“红框厚度”需为整数。"; return false; }
         if (!double.TryParse(MenuWidthBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
         { error = "“窗口宽度”需为数字。"; return false; }
         if (!double.TryParse(MenuHeightBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
         { error = "“窗口高度”需为数字。"; return false; }
         if (!int.TryParse(MenuCornerRadiusBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
         { error = "“圆角半径”需为整数。"; return false; }
-        if (!double.TryParse(PinMinWidthBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
-        { error = "“最小宽度”需为数字。"; return false; }
-        if (!double.TryParse(PinMinHeightBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
-        { error = "“最小高度”需为数字。"; return false; }
-        if (!double.TryParse(PinShadowBlurBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
-        { error = "“阴影模糊半径”需为数字。"; return false; }
-        if (!double.TryParse(PinRotationStepBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
-        { error = "“旋转步进”需为数字。"; return false; }
         if (!double.TryParse(PinDefaultOpacityBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double op) || op < 0 || op > 1)
         { error = "“默认不透明度”需为 0~1 的数字。"; return false; }
 
         if (!IsValidColor(SnippingMaskColorBox) || !IsValidColor(SnippingBorderColorBox) ||
-            !IsValidColor(SnippingOverlayBgBox) || !IsValidColor(MenuBackgroundBox) ||
-            !IsValidColor(MenuButtonBgBox) || !IsValidColor(MenuButtonHoverBgBox) ||
-            !IsValidColor(PinBorderColorBox))
+            !IsValidColor(MenuBackgroundBox) || !IsValidColor(MenuButtonBgBox) ||
+            !IsValidColor(MenuButtonHoverBgBox) || !IsValidColor(PinBorderColorBox))
         { error = "颜色字段需为 #AARRGGBB 或命名色（如 Black）。"; return false; }
 
         error = string.Empty;

@@ -127,9 +127,9 @@
 
     <Window.ContextMenu>
         <ContextMenu>
-            <MenuItem Header="置顶" IsCheckable="True" IsChecked="True"
+            <MenuItem Header="置顶" IsCheckable="True" IsChecked="True" x:Name="TopmostMenuItem"
                       Click="Topmost_Click" />
-            <MenuItem Header="显示阴影" IsCheckable="True" IsChecked="True"
+            <MenuItem Header="显示阴影" IsCheckable="True" IsChecked="True" x:Name="ShadowMenuItem"
                       Click="Shadow_Click" />
             <MenuItem Header="显示边界" IsCheckable="True" x:Name="BorderMenuItem"
                       Click="Border_Click" />

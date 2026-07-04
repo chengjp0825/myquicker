@@ -32,18 +32,19 @@ public partial class PinWindow : Window
 {
     private readonly BitmapSource _source;
 
-    // 旋转累计角度（每次 +RotationStepDegrees）与水平镜像开关
+    // 旋转累计角度（每次 +90°）与水平镜像开关
     private int _rotationStep;
     private bool _mirrored;
 
-    // 每次旋转的步进角度（度），来自统一配置
-    private readonly double _rotationStepDegrees = SettingsManager.Instance.Settings.Pin.RotationStepDegrees;
+    // 每次旋转的步进角度（度），固定 90°（原 PinSettings.RotationStepDegrees 已移除：
+    // 非 90° 会破坏 90/270 宽高互换逻辑）
+    private const double _rotationStepDegrees = 90;
 
     // 原始物理像素尺寸（重置大小用）
     private readonly double _naturalWidth;
     private readonly double _naturalHeight;
 
-    /// <summary>当前旋转角度（0/90/180/270）。步进值取自 SettingsModel.Pin.RotationStepDegrees。</summary>
+    /// <summary>当前旋转角度（0/90/180/270）。步进固定 90°。</summary>
     private double RotationAngle => (_rotationStep % 4) * _rotationStepDegrees;
 
     // ----- 批注状态机（docs/02 §8.1）-----
@@ -73,12 +74,19 @@ public partial class PinWindow : Window
         InitializeComponent();
 
         // 关键视觉参数从统一配置注入（Per SPEC 重构 Step 3）。
+        // 最小宽高（40×40）、阴影模糊半径（14）、旋转步进（90°）已硬编码，不再可配。
         var pin = SettingsManager.Instance.Settings.Pin;
-        MinWidth = pin.MinWidth;
-        MinHeight = pin.MinHeight;
+        MinWidth = 40;
+        MinHeight = 40;
         PinBorder.BorderBrush = BrushHelper.ToBrush(pin.BorderColor);
-        ShadowEffect.BlurRadius = pin.ShadowBlurRadius;
+        ShadowEffect.BlurRadius = 14;
         Opacity = pin.DefaultOpacity;
+
+        // 默认置顶 / 默认阴影（Per SPEC 8C）：覆盖 XAML 的 True 默认与菜单勾选状态。
+        Topmost = pin.DefaultTopmost;
+        TopmostMenuItem.IsChecked = pin.DefaultTopmost;
+        ShadowMenuItem.IsChecked = pin.DefaultShowShadow;
+        PinImage.Effect = pin.DefaultShowShadow ? ShadowEffect : null;
 
         _source = source;
         _naturalWidth = source.PixelWidth;
