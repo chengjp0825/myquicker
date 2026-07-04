@@ -347,8 +347,8 @@
                                 <ColumnDefinition Width="200" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldTitle}" Text="窗口宽度" />
-                                <TextBlock Style="{StaticResource FieldDesc}" Text="单位 DIP" />
+                                <TextBlock Style="{StaticResource FieldTitle}" Text="面板宽度" />
+                                <TextBlock Style="{StaticResource FieldDesc}" Text="内容区宽度，单位 DIP" />
                             </StackPanel>
                             <TextBox Grid.Column="1" x:Name="MenuWidthBox"
                                      Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />
@@ -360,8 +360,8 @@
                                 <ColumnDefinition Width="200" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldTitle}" Text="窗口高度" />
-                                <TextBlock Style="{StaticResource FieldDesc}" Text="单位 DIP" />
+                                <TextBlock Style="{StaticResource FieldTitle}" Text="面板高度" />
+                                <TextBlock Style="{StaticResource FieldDesc}" Text="内容区高度，单位 DIP" />
                             </StackPanel>
                             <TextBox Grid.Column="1" x:Name="MenuHeightBox"
                                      Style="{StaticResource FlatTextBox}" Width="200" HorizontalAlignment="Right" />

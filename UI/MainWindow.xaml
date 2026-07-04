@@ -11,76 +11,92 @@
         Topmost="True"
         ShowInTaskbar="False"
         WindowStartupLocation="Manual">
-    
-    <Border x:Name="RootBorder" Padding="12">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" />    <!-- 方块矩阵区 -->
-                <RowDefinition Height="Auto" /> <!-- 底部设置区 -->
-            </Grid.RowDefinitions>
 
-            <!-- 1. 动作矩阵区：使用 WrapPanel 让方块自动从左到右换行 -->
-            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <ItemsControl x:Name="ActionsControl" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <!-- WrapPanel 会根据窗口宽度自动折行，形成完美的网格 -->
-                            <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate DataType="{x:Type models:ActionItem}">
-                            <!-- 固定大小的方块按钮 (例如 72x72) -->
-                            <Button Click="ActionButton_Click"
-                                    Style="{StaticResource MenuButtonStyle}"
-                                    Width="72" Height="72"
-                                    Margin="4"
-                                    Padding="4"
-                                    Cursor="Hand">
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="*" /> <!-- 上半部分：大图标 -->
-                                        <RowDefinition Height="Auto" /> <!-- 下半部分：文字 -->
-                                    </Grid.RowDefinitions>
-                                    
-                                    <!-- 图标：Segoe MDL2 Assets 字形，码来自 ActionItem.Icon（hex），无效回退占位字 -->
-                                    <TextBlock Grid.Row="0"
-                                               FontFamily="Segoe MDL2 Assets"
-                                               Text="{Binding Icon, Converter={StaticResource HexToGlyphConverter}}"
-                                               FontSize="26"
-                                               Opacity="0.9"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"/>
-                                    
-                                    <!-- 文字：小字号，底部居中，超长则显示省略号 -->
-                                    <TextBlock Grid.Row="1" 
-                                               Text="{Binding Name}" 
-                                               FontSize="12" 
-                                               Opacity="0.85"
-                                               TextAlignment="Center" 
-                                               TextTrimming="CharacterEllipsis" 
-                                               Margin="0,2,0,2" />
-                                </Grid>
-                            </Button>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
+    <Grid>
+        <!-- 阴影层：不参与命中测试 -->
+        <Border x:Name="ShadowBorder"
+                Background="Black"
+                Opacity="0.35"
+                IsHitTestVisible="False">
+            <Border.Effect>
+                <BlurEffect Radius="12" />
+            </Border.Effect>
+        </Border>
 
-            <!-- 2. 底部工具区 -->
-            <Border Grid.Row="1" Margin="4,12,4,0" Padding="0,8,0,0" 
-                    BorderBrush="#33FFFFFF" BorderThickness="0,1,0,0">
-                <Button x:Name="SettingsButton"
-                        Click="SettingsButton_Click"
-                        Style="{StaticResource MenuButtonStyle}"
-                        HorizontalAlignment="Right"
-                        Width="28" Height="28"
-                        Padding="0"
-                        ToolTip="设置">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" FontSize="13" />
-                </Button>
-            </Border>
-        </Grid>
-    </Border>
+        <!-- 12px 边距留给底层投影；右下 padding 略收给底栏/滚动条留余量 -->
+        <Border x:Name="RootBorder"
+                Margin="12"
+                Padding="14,12,10,12"
+                BorderBrush="#14FFFFFF"
+                BorderThickness="1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />    <!-- 方块矩阵区 -->
+                    <RowDefinition Height="Auto" /> <!-- 底部设置区 -->
+                </Grid.RowDefinitions>
+
+                <!-- 1. 动作矩阵区：使用 WrapPanel 让方块自动从左到右换行 -->
+                <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl x:Name="ActionsControl" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <!-- WrapPanel 会根据窗口宽度自动折行，形成完美的网格 -->
+                                <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type models:ActionItem}">
+                                <!-- 固定大小的方块按钮 (例如 76x76) -->
+                                <Button Click="ActionButton_Click"
+                                        Style="{StaticResource MenuButtonStyle}"
+                                        Width="76" Height="76"
+                                        Margin="5"
+                                        Padding="4"
+                                        Cursor="Hand">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*" /> <!-- 上半部分：大图标 -->
+                                            <RowDefinition Height="Auto" /> <!-- 下半部分：文字 -->
+                                        </Grid.RowDefinitions>
+
+                                        <!-- 图标：Segoe MDL2 Assets 字形，码来自 ActionItem.Icon（hex），无效回退占位字 -->
+                                        <TextBlock Grid.Row="0"
+                                                   FontFamily="Segoe MDL2 Assets"
+                                                   Text="{Binding Icon, Converter={StaticResource HexToGlyphConverter}}"
+                                                   FontSize="24"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+
+                                        <!-- 文字：小字号，底部居中，超长则显示省略号 -->
+                                        <TextBlock Grid.Row="1"
+                                                   Text="{Binding Name}"
+                                                   FontSize="11"
+                                                   Foreground="#E0FFFFFF"
+                                                   TextAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Margin="0,2,0,1" />
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- 2. 底部工具区 -->
+                <Border Grid.Row="1" Margin="4,12,4,0" Padding="0,8,0,0"
+                        BorderBrush="#33FFFFFF" BorderThickness="0,1,0,0">
+                    <Button x:Name="SettingsButton"
+                            Click="SettingsButton_Click"
+                            Style="{StaticResource MenuButtonStyle}"
+                            HorizontalAlignment="Right"
+                            Width="28" Height="28"
+                            Padding="0"
+                            ToolTip="设置">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" FontSize="13" />
+                    </Button>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
 </Window>

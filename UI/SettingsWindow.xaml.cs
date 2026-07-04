@@ -192,9 +192,9 @@ public partial class SettingsWindow : Window
         if (!double.TryParse(SnippingMaskAlphaBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double ma) || ma < 0 || ma > 1)
         { error = "“暗罩浓度”需为 0~1 的数字。"; return false; }
         if (!double.TryParse(MenuWidthBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
-        { error = "“窗口宽度”需为数字。"; return false; }
+        { error = "“面板宽度”需为数字。"; return false; }
         if (!double.TryParse(MenuHeightBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
-        { error = "“窗口高度”需为数字。"; return false; }
+        { error = "“面板高度”需为数字。"; return false; }
         if (!int.TryParse(MenuCornerRadiusBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
         { error = "“圆角半径”需为整数。"; return false; }
         if (!double.TryParse(PinDefaultOpacityBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double op) || op < 0 || op > 1)

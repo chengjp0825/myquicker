@@ -106,10 +106,10 @@ public class SnippingSettings
 /// <summary>唤醒菜单参数。</summary>
 public class MenuSettings
 {
-    /// <summary>菜单窗口宽度（DIP）。</summary>
+    /// <summary>菜单内容区宽度（DIP）。实际窗口会额外包含 24 DIP 阴影边距。</summary>
     public double Width { get; set; } = 250;
 
-    /// <summary>菜单窗口高度（DIP）。</summary>
+    /// <summary>菜单内容区高度（DIP）。实际窗口会额外包含 24 DIP 阴影边距。</summary>
     public double Height { get; set; } = 250;
 
     /// <summary>菜单外层半透明背景色（ARGB 十六进制）。</summary>

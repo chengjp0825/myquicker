@@ -46,10 +46,11 @@ public partial class MainWindow : Window
     /// </summary>
     internal void ApplyMenuSettings(MenuSettings menu)
     {
-        Width = menu.Width;
-        Height = menu.Height;
+        Width = menu.Width + 24;
+        Height = menu.Height + 24;
         RootBorder.Background = BrushHelper.ToBrush(menu.Background);
         RootBorder.CornerRadius = new CornerRadius(menu.CornerRadius);
+        ShadowBorder.CornerRadius = new CornerRadius(menu.CornerRadius + 12);
         // 按钮背景色经 DynamicResource 注入样式（MenuButtonStyle 引用 MenuButtonBackgroundBrush/...Hover）。
         Resources["MenuButtonBackgroundBrush"] = BrushHelper.ToBrush(menu.ButtonBackground);
         Resources["MenuButtonHoverBackgroundBrush"] = BrushHelper.ToBrush(menu.ButtonHoverBackground);
@@ -130,7 +131,10 @@ public partial class MainWindow : Window
             return;
 
         var p = ToLogical(e);
-        if (p.X < Left || p.X > Left + Width || p.Y < Top || p.Y > Top + Height)
+        var contentBounds = RootBorder.TransformToAncestor(this)
+            .TransformBounds(new Rect(0, 0, RootBorder.ActualWidth, RootBorder.ActualHeight));
+        contentBounds.Offset(Left, Top);
+        if (!contentBounds.Contains(p))
             Sleep();
     }
 
