@@ -25,7 +25,7 @@
 `OnSourceInitialized` 给 HWND 加 `WS_EX_NOACTIVATE`，弹出与点击均不夺取当前应用焦点。菜单全程不抢焦点，原前台窗口始终持焦，故**无需** `Activate()` / `OnDeactivated` / 显式恢复前台窗口，动作执行前只需 `Hide()`。
 
 ### 方块矩阵布局
-`ScrollViewer` + `ItemsControl`(ItemsPanel=`WrapPanel`)，每个动作为 72×72 图标方块（`MenuButtonStyle` + 内含图标 `TextBlock`（字形绑定 `ActionItem.Icon` 经 `HexToGlyphConverter`）+ 名称 `TextBlock`）；底部工具区含齿轮按钮。`ApplyMenuSettings` 供设置页即时刷新菜单视觉。
+`ScrollViewer` + `ItemsControl`(ItemsPanel=`WrapPanel`)，每个动作为 76×76 图标方块（`MenuButtonStyle` + 内含图标 `TextBlock`（字形绑定 `ActionItem.Icon` 经 `HexToGlyphConverter`，24px）+ 名称 `TextBlock`（11px，`#E0FFFFFF`））；按钮带 1px 半透明边框、hover 时 1.05 微缩放。底部工具区含齿轮按钮，使用 `MenuSettingsButtonStyle`。面板外层由双层 `Border` 实现：底层为 `BlurEffect` 柔和投影（`IsHitTestVisible=False`），顶层 `RootBorder` 承载内容与半透明深灰背景。
 
 ### 定位
 钩子事件给出物理坐标，用 `ToLogical(POINT)`（封装 `TransformFromDevice`）转逻辑坐标后令窗口中心对齐光标。`ToLogical` 同时供 `OnAnyMouseDown` 复用，统一 DPI 处理。
