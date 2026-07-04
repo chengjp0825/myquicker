@@ -107,22 +107,22 @@ public class SnippingSettings
 public class MenuSettings
 {
     /// <summary>菜单窗口宽度（DIP）。</summary>
-    public double Width { get; set; } = 240;
+    public double Width { get; set; } = 250;
 
     /// <summary>菜单窗口高度（DIP）。</summary>
-    public double Height { get; set; } = 240;
+    public double Height { get; set; } = 250;
 
     /// <summary>菜单外层半透明背景色（ARGB 十六进制）。</summary>
-    public string Background { get; set; } = "#88000000";
+    public string Background { get; set; } = "#E6202020";
 
     /// <summary>菜单外层圆角半径（px）。</summary>
     public int CornerRadius { get; set; } = 16;
 
     /// <summary>动作按钮背景色。</summary>
-    public string ButtonBackground { get; set; } = "#FF2D2D2D";
+    public string ButtonBackground { get; set; } = "#26FFFFFF";
 
     /// <summary>动作按钮悬停背景色。</summary>
-    public string ButtonHoverBackground { get; set; } = "#FF4A4A4A";
+    public string ButtonHoverBackground { get; set; } = "#38FFFFFF";
 }
 
 /// <summary>贴图窗口参数。Per SPEC 8C。</summary>
