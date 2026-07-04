@@ -98,7 +98,7 @@
 
 - **全局崩溃兜底**：`App` 注册 `DispatcherUnhandledException`，未捕获异常记 `Debug.WriteLine` 后 `e.Handled = true`，保活常驻托盘进程（StackOverflow/OOM 等不可恢复异常不触发此事件）。
 - **越界防御**：`ScreenshotWindow.SettleSelection` 用 `Math.Clamp` 把裁剪矩形夹取到 base-image 边界，防 `CroppedBitmap` 越界抛 `ArgumentException`（寻边窗口可能超出虚拟屏）。
-- **剪贴板/进程容错**：`Clipboard.SetImage` try-catch（剪贴板被独占不阻断）；`ActionExecutor` 空命令校验（`IsNullOrWhiteSpace`）+ `Process.Start` try-catch 拦 `Win32Exception`。
+- **剪贴板/进程容错**：`Clipboard.SetImage` try-catch（剪贴板被独占不阻断），失败弹 toast 告知用户（`Toast.Show`，见 docs/03 §8）；`ActionExecutor` 空命令校验（`IsNullOrWhiteSpace`）+ 未知 `sys:` 指令拦截 + `Process.Start` try-catch 拦 `Win32Exception`，三者均弹 toast 反馈用户（成功启动不弹——程序弹出即反馈）。
 - **资源释放**：`ScreenshotWindow.OnMouseLeftButtonUp` try/finally 保证 `Close()` / `ReleaseMouseCapture`（无论是否抛异常）。
 - **原子配置**：`SettingsManager.Save` tmp+`File.Move` 原子覆盖，防断电/崩溃截断；脏 JSON 备份 `.bak` 后回退默认值，不丢失坏文件。详见 `docs/01-architecture-and-config.md`「配置系统」。
 - **钩子时效**：`HookCallback` 异步派发 UI/IO，<100ms 返回，防 `LowLevelHooksTimeout` 静默摘钩。

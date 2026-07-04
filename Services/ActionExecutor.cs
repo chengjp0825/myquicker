@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using MyQuicker.Models;
@@ -36,6 +37,14 @@ internal sealed class ActionExecutor
         if (string.IsNullOrWhiteSpace(item.Command))
         {
             Debug.WriteLine("ERROR: 动作命令为空，已忽略。");
+            Toast.Show(string.IsNullOrWhiteSpace(item.Name) ? "动作未配置命令" : $"动作「{item.Name}」未配置命令", 3000);
+            return;
+        }
+
+        // sys: 前缀为内部协议指令；非已实现者按未知指令提示，避免误当外部程序启动失败。
+        if (item.Command.StartsWith("sys:", StringComparison.Ordinal))
+        {
+            Toast.Show($"未知指令：{item.Command}", 3000);
             return;
         }
 
@@ -50,8 +59,9 @@ internal sealed class ActionExecutor
         }
         catch (Exception ex)
         {
-            // 错填命令/找不到程序：拦截 Win32Exception，避免常驻进程闪退。
+            // 错填命令/找不到程序：拦截 Win32Exception，避免常驻进程闪退；弹 toast 告知用户。
             Debug.WriteLine($"ERROR: 启动动作失败 ({item.Command}): {ex.Message}");
+            Toast.Show($"无法启动：{item.Command}", 3000);
         }
     }
 }

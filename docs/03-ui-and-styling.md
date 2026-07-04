@@ -168,3 +168,23 @@ ESC / 右键取消关闭。
 ### 7.4 唤醒链路零 IO
 - `WakeUp` 路径**禁止任何磁盘 IO**（不读 `settings.json`）。
 - Action 数据在 `App.OnStartup` 加载到内存缓存，`SettingsWindow` 保存时刷新缓存；唤醒仅改变坐标与透明度。
+
+## 8. ToastWindow —— 轻量瞬时通知
+
+无框置顶 toast，用于剪贴板失败、启动成功等非阻塞提示。`Toast.Show(message, durationMs=2500)` 静态入口（UI 线程调用），窗口生命周期自管。
+
+### 窗口属性
+`WindowStyle=None` / `AllowsTransparency=True` / `Topmost=True` / `ShowInTaskbar=False` / `ShowActivated=False`（不抢焦点）/ `SizeToContent=WidthAndHeight`（自适应文案）。
+
+### 视觉
+暗色半透明卡片（`#E6323232`，圆角 8px，`MaxWidth=360`）+ 白字 13px 自动换行。
+
+### 定位与堆叠
+主屏工作区右下角（`SystemParameters.WorkArea`），多个 toast 向上堆叠（贴着已有 toast 上方 10px 间隙）。`Loaded` 时按 `ActualWidth/Height` 定位。
+
+### 显隐
+`Opacity=0` 起始 → `Loaded` 淡入 0→1（150ms）→ `DispatcherTimer` 到 `durationMs` 淡出 1→0（200ms）→ `Close()`。`Closed` 从静态 `_active` 列表移除（列表同时防 GC 回收）。
+
+### 调用点
+- `App.OnStartup` 末尾：`Toast.Show($"MyQuicker 已启动 · {hint}唤醒")`——主窗口无任务栏入口，需告知已启动 + 当前唤醒方式（中键/侧键/画圈）。
+- `ScreenshotWindow.SettleSelection` 剪贴板失败 catch：`Toast.Show("⚠ 剪贴板被占用，截图未复制", 3000)`——原仅 `Debug.WriteLine` 用户无感，`CopyOnly` 模式下截图会彻底丢失无提示。

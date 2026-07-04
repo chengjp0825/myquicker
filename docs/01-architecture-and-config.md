@@ -74,7 +74,7 @@
 
 ## 4. 指令协议（SDD）：`sys:` 前缀
 
-`ActionItem.Command` 以 `sys:` 开头者为**内部协议指令**，由 `ActionExecutor.Execute` 拦截，不走 `Process.Start`。当前已实现：
+`ActionItem.Command` 以 `sys:` 开头者为**内部协议指令**，由 `ActionExecutor.Execute` 拦截，不走 `Process.Start`。未实现的 `sys:` 指令弹 toast「未知指令」提示（不落 `Process.Start`）。当前已实现：
 
 | 指令 | 行为 |
 |------|------|

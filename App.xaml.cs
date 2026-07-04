@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Windows;
 using System.Windows.Forms;
+using MyQuicker.Interop;
+using MyQuicker.Models;
 using MyQuicker.Services;
 using MyQuicker.UI;
 using Application = System.Windows.Application;
@@ -49,6 +51,13 @@ public partial class App : Application
         _hookService.Start();
 
         InitializeTray();
+
+        // 启动 toast：主窗口无任务栏入口，需明确告知已启动 + 提示当前唤醒方式。
+        var action = SettingsManager.Instance.Settings.Action;
+        string hint = action.WakeupMessage == ActionSettings.WAKEUP_CIRCLE_GESTURE ? "画圈"
+                    : action.WakeupMessage == NativeMethods.WM_XBUTTONDOWN ? "侧键"
+                    : "中键";
+        Toast.Show($"MyQuicker 已启动 · {hint}唤醒");
     }
 
     /// <summary>

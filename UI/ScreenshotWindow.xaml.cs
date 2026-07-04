@@ -259,9 +259,9 @@ public partial class ScreenshotWindow : Window
             }
             catch (Exception ex)
             {
-                // 剪贴板被其它进程独占（RDP/剪贴板管理器）：不阻断流程。
-                // TODO: 下一批加 toast 提示用户剪贴板写入失败。
+                // 剪贴板被其它进程独占（RDP/剪贴板管理器）：不阻断流程，弹 toast 告知用户。
                 Debug.WriteLine($"ERROR: 写剪贴板失败: {ex.Message}");
+                Toast.Show("⚠ 剪贴板被占用，截图未复制", 3000);
             }
         }
 
