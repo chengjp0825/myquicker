@@ -72,6 +72,10 @@ public partial class MainWindow : Window
         if (IsVisible)
             return;
 
+        // 截屏覆盖层开启时不抢唤醒，避免自定义截图时画圈寻位/按键误触菜单。
+        if (System.Windows.Application.Current?.Windows.OfType<ScreenshotWindow>().Any() == true)
+            return;
+
         PositionAtCursor(e); // place before show (avoids flicker once hwnd exists)
 
         // Hot-reload actions from disk on every wake-up so edits to
