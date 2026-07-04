@@ -99,6 +99,42 @@
         </Style.Triggers>
     </Style>
 
+    <!-- 唤醒菜单底部设置按钮。比动作按钮更紧凑，但保持同一视觉语言 -->
+    <Style x:Key="MenuSettingsButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="#20FFFFFF" />
+        <Setter Property="BorderBrush" Value="#15FFFFFF" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="#BBBBBB" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Width" Value="26" />
+        <Setter Property="Height" Value="26" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="6"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#35FFFFFF" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="#22FFFFFF" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#18FFFFFF" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- 设置中心侧边栏导航项（Fluent：选中浅蓝底 + Accent 指示条与文字；hover 丝滑淡入） -->
     <Style x:Key="NavRadioButton" TargetType="RadioButton">
         <Setter Property="GroupName" Value="Nav" />
