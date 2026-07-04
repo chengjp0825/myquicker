@@ -91,9 +91,11 @@ public partial class SettingsWindow : Window
 
     private static int ToIndex(ActionSettings s)
     {
+        if (s.WakeupMessage == ActionSettings.WAKEUP_CIRCLE_GESTURE)
+            return 2; // 画圈
         if (s.WakeupMessage == NativeMethods.WM_XBUTTONDOWN)
-            return s.XButtonData == 2 ? 2 : 1;
-        return 0; // middle
+            return 1; // 侧键后退 (XButton1)
+        return 0; // 中键
     }
 
     private void SaveButton_Click(object sender, RoutedEventArgs e)
@@ -109,10 +111,13 @@ public partial class SettingsWindow : Window
 
         // Action
         int index = WakeupKeyCombo.SelectedIndex;
-        _action.WakeupMessage = index == 1 || index == 2
-            ? NativeMethods.WM_XBUTTONDOWN
-            : NativeMethods.WM_MBUTTONDOWN;
-        _action.XButtonData = index switch { 1 => 1, 2 => 2, _ => 0 };
+        _action.WakeupMessage = index switch
+        {
+            1 => NativeMethods.WM_XBUTTONDOWN,
+            2 => ActionSettings.WAKEUP_CIRCLE_GESTURE,
+            _ => NativeMethods.WM_MBUTTONDOWN,
+        };
+        _action.XButtonData = index == 1 ? 1 : 0;
 
         // Snipping
         _snipping.DragThreshold = double.Parse(SnippingDragThresholdBox.Text, CultureInfo.InvariantCulture);

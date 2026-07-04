@@ -68,8 +68,8 @@
                                       Style="{StaticResource FlatComboBox}"
                                       Width="280" HorizontalAlignment="Right" SelectedIndex="0">
                                 <ComboBoxItem Content="鼠标中键" />
-                                <ComboBoxItem Content="鼠标侧键 1 (后退)" />
-                                <ComboBoxItem Content="鼠标侧键 2 (前进)" />
+                                <ComboBoxItem Content="侧键后退 (XButton1)" />
+                                <ComboBoxItem Content="单纯画圈 (无按键)" />
                             </ComboBox>
                         </Grid>
                     </StackPanel>

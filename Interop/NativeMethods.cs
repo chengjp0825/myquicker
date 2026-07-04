@@ -31,6 +31,9 @@ internal static class NativeMethods
     /// <summary>Side mouse button (XBUTTON1 / XBUTTON2) down message.</summary>
     public const int WM_XBUTTONDOWN = 0x020B;
 
+    /// <summary>Mouse move message; observed passively for the circle wake-up gesture (never intercepted).</summary>
+    public const int WM_MOUSEMOVE = 0x0200;
+
     // -----------------------------------------------------------------------
     // 3.1 Hook callback delegate
     // -----------------------------------------------------------------------

@@ -26,10 +26,13 @@ public class SettingsModel
 /// <summary>唤醒键与动作列表配置（原 AppSettings 字段折叠于此）。</summary>
 public class ActionSettings
 {
-    /// <summary>唤醒菜单的鼠标消息（WM_MBUTTONDOWN 或 WM_XBUTTONDOWN）。</summary>
+    /// <summary>特殊唤醒方式：纯轨迹画圈（无按键），由 GlobalHookService 的 WM_MOUSEMOVE 旁观分支识别。</summary>
+    public const int WAKEUP_CIRCLE_GESTURE = -1;
+
+    /// <summary>唤醒菜单的鼠标消息（WM_MBUTTONDOWN / WM_XBUTTONDOWN / WAKEUP_CIRCLE_GESTURE）。</summary>
     public int WakeupMessage { get; set; } = NativeMethods.WM_MBUTTONDOWN;
 
-    /// <summary>WM_XBUTTONDOWN 的侧键标识（1=后退/XBUTTON1, 2=前进/XBUTTON2）；中键时忽略。</summary>
+    /// <summary>WM_XBUTTONDOWN 的侧键标识（1=后退/XBUTTON1, 2=前进/XBUTTON2）；中键/画圈时忽略。</summary>
     public int XButtonData { get; set; } = 0;
 
     /// <summary>用户自定义动作列表。</summary>

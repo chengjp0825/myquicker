@@ -23,6 +23,14 @@ internal sealed class GlobalHookService : IDisposable
     private IntPtr _hookId = IntPtr.Zero;
     private ActionSettings _settings = new();
 
+    /// <summary>纯轨迹画圈的滑动时间窗：最近 GestureWindowMs 内的鼠标移动点。</summary>
+    private readonly Queue<(POINT Position, long Timestamp)> _moveHistory = new();
+
+    /// <summary>复用缓冲，避免每次 mousemove 给 IsCircle 传参时分配 List。</summary>
+    private readonly List<POINT> _pointsBuffer = new();
+
+    private const int GestureWindowMs = 800;
+
     /// <summary>
     /// Raised on the UI thread when the configured wake-up button is
     /// pressed. The <see cref="POINT"/> carries the physical screen
@@ -90,6 +98,34 @@ internal sealed class GlobalHookService : IDisposable
         if (nCode >= 0)
         {
             int msg = wParam.ToInt32();
+
+            // 纯轨迹画圈：旁观 WM_MOUSEMOVE，永不拦截（始终 CallNextHookEx），保证鼠标移动绝对流畅。
+            if (msg == WM_MOUSEMOVE)
+            {
+                if (_settings.WakeupMessage == ActionSettings.WAKEUP_CIRCLE_GESTURE)
+                {
+                    var info = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+                    long now = Environment.TickCount64;
+                    _moveHistory.Enqueue((info.pt, now));
+                    PruneMoveHistory(now);
+
+                    if (_moveHistory.Count >= 8)
+                    {
+                        _pointsBuffer.Clear();
+                        foreach (var item in _moveHistory)
+                            _pointsBuffer.Add(item.Position);
+
+                        if (GestureHelper.IsCircle(_pointsBuffer))
+                        {
+                            _moveHistory.Clear(); // 防止一段轨迹连续触发
+                            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                            dispatcher?.BeginInvoke(new Action(() => OnWakeupClick?.Invoke(this, info.pt)));
+                        }
+                    }
+                }
+                return NativeMethods.CallNextHookEx(_hookId, nCode, wParam, lParam);
+            }
+
             bool isTrackedDown = msg is WM_LBUTTONDOWN or WM_RBUTTONDOWN or WM_NCLBUTTONDOWN
                                           or WM_MBUTTONDOWN or WM_XBUTTONDOWN;
 
@@ -127,6 +163,13 @@ internal sealed class GlobalHookService : IDisposable
         }
 
         return NativeMethods.CallNextHookEx(_hookId, nCode, wParam, lParam);
+    }
+
+    /// <summary>剔除滑动窗口中超过 GestureWindowMs 的老点，保持时间窗简短。</summary>
+    private void PruneMoveHistory(long now)
+    {
+        while (_moveHistory.Count > 0 && now - _moveHistory.Peek().Timestamp > GestureWindowMs)
+            _moveHistory.Dequeue();
     }
 
     public void Dispose() => Stop();
