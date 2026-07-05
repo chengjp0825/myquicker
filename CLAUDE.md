@@ -45,3 +45,17 @@ Spec 驱动开发（SDD）：`SPEC.md` 为高层系统规范（PRD），`docs/` 
 
 - **API = `glm-latest` 时命令安全分类器不可用**：Claude Code 的 auto 模式无法判定写操作安全性，会阻塞 `git commit` / `git add` / `git checkout` 等变更类命令（报 `auto mode cannot determine the safety`），只读工具（Read / Grep / Glob / `git diff` / `git status` / `git log`）不受影响。遇此情形：让用户手动批准该次工具调用，或切回可用 API（如 Claude 官方模型）后再提交；不要在分类器不可用时反复重试同一写命令。
 
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked through natural-language prompts/conversations in this repo, not in a formal issue tracker. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Uses the default canonical labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
