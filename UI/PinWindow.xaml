@@ -32,7 +32,7 @@
 
         <Grid x:Name="ContentRoot" Background="{x:Null}">
             <Image x:Name="PinImage"
-                   Stretch="None"
+                   Stretch="Fill"
                    Margin="0"
                    IsHitTestVisible="False"
                    HorizontalAlignment="Center"

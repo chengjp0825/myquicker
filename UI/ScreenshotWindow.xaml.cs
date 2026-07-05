@@ -28,6 +28,11 @@ public partial class ScreenshotWindow : Window
 {
     private readonly BitmapSource _baseImage;
     private readonly Rectangle _bounds;
+
+    /// <summary>DIP↔物理像素 缩放系数（取窗口实际渲染 DPI，docs/02 §5）。窗口本地 DIP 与底图物理像素间转换用。初始为 GetDpiForMonitor 估计值，SourceInitialized/DpiChanged 用 TransformToDevice 修正。</summary>
+    private double _scaleX;
+    private double _scaleY;
+
     private bool _isDragging;
     private bool _isPotentialDrag;
     private Point _mouseDownPoint;
@@ -37,6 +42,9 @@ public partial class ScreenshotWindow : Window
     /// 用于"智能快照"：松开时若未拖拽且有红框，则截红框区域。null 表示无有效目标。
     /// </summary>
     private Rect? _currentSelection;
+
+    /// <summary>上次寻边命中的窗口句柄，用于"目标变化时"才写日志，避免刷屏。</summary>
+    private IntPtr _lastEdgeTarget = IntPtr.Zero;
 
     /// <summary>判定"点击 vs 拖拽"的位移阈值（DIP）。超过即升级为拖拽。值取自 SettingsModel.Snipping.DragThreshold。</summary>
     private readonly double DragThreshold = SettingsManager.Instance.Settings.Snipping.DragThreshold;
@@ -48,14 +56,22 @@ public partial class ScreenshotWindow : Window
         _baseImage = source;
         _bounds = bounds;
 
-        // Physical-coordinate strong binding: span every monitor exactly.
-        Left = bounds.X;
-        Top = bounds.Y;
-        Width = bounds.Width;
-        Height = bounds.Height;
+        // 按 bounds 所在显示器取真实 DPI（主副屏缩放不一致时各屏分别取，docs/02 §5）。
+        var (sx, sy) = DpiHelper.ScaleForBounds(bounds);
+        _scaleX = sx;
+        _scaleY = sy;
+
+        // 物理像素 → DIP：bounds 为物理像素，WPF 窗口 Left/Top/Width/Height 为 DIP。
+        // 非 100% 缩放下必须除以 DPI 系数，否则覆盖层被放大、底图拉伸（docs/02 §5）。
+        Left = bounds.X / _scaleX;
+        Top = bounds.Y / _scaleY;
+        Width = bounds.Width / _scaleX;
+        Height = bounds.Height / _scaleY;
 
         BackgroundImage.Source = source;
-        ScreenGeometry.Rect = new Rect(0, 0, bounds.Width, bounds.Height);
+        ScreenGeometry.Rect = new Rect(0, 0, Width, Height);
+
+        Debug.WriteLine($"DEBUG: ScreenshotWindow bounds={bounds} scale=({_scaleX:F3},{_scaleY:F3}) window=({Left:F1},{Top:F1},{Width:F1}x{Height:F1})");
 
         // 关键视觉参数从统一配置注入（Per SPEC 重构 Step 3）。
         // 红框厚度（2px）与覆盖层背景色（Black）已硬编码，不再可配。
@@ -66,6 +82,55 @@ public partial class ScreenshotWindow : Window
             (byte)(255 * snipping.MaskAlpha), 0, 0, 0));
         HighlightBorder.BorderBrush = BrushHelper.ToBrush(snipping.BorderColor);
         HighlightBorder.BorderThickness = new Thickness(2);
+
+        // HWND 创建后用实际渲染 DPI（TransformToDevice）修正 scale——AllowsTransparency 等
+        // 场景下渲染 DPI 可能与 GetDpiForMonitor 不同（如固定为主屏 DPI）。用实际值才能保证
+        // 显示与裁剪一致。SourceInitialized 在首次渲染前触发，重设尺寸无闪烁。
+        SourceInitialized += OnSourceInitialized;
+    }
+
+    /// <summary>HWND 创建后：物理坐标强制定位 + 用实际渲染 DPI 重算尺寸，并订阅 DPI 变化。</summary>
+    private void OnSourceInitialized(object? sender, EventArgs e)
+    {
+        // SetWindowPos 以物理坐标强制 HWND 到 bounds，确保落在目标显示器（不受 WPF DIP
+        // 跨混合 DPI 定位歧义影响），并触发该显示器 DPI 赋值。
+        IntPtr hwnd = new WindowInteropHelper(this).Handle;
+        NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, _bounds.X, _bounds.Y,
+            _bounds.Width, _bounds.Height,
+            NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
+
+        ApplyRenderMetrics();
+        DpiChanged += OnDpiChanged;
+    }
+
+    /// <summary>窗口跨显示器后 DPI 变化：重算尺寸保持 1:1（如初始放置触发 WM_DPICHANGED）。</summary>
+    private void OnDpiChanged(object sender, System.Windows.DpiChangedEventArgs e)
+    {
+        ApplyRenderMetrics();
+    }
+
+    /// <summary>
+    /// 用窗口实际渲染 DPI（<see cref="PresentationSource.CompositionTarget.TransformToDevice"/>）
+    /// 重算 _scaleX/Y 与 Left/Top/Width/Height/ScreenGeometry。裁剪与显示共用此 scale，
+    /// 保证框选区域与裁出图像 1:1。
+    /// </summary>
+    private void ApplyRenderMetrics()
+    {
+        var src = PresentationSource.FromVisual(this);
+        if (src?.CompositionTarget is not null)
+        {
+            var m = src.CompositionTarget.TransformToDevice;
+            _scaleX = m.M11;
+            _scaleY = m.M22;
+        }
+
+        Left = _bounds.X / _scaleX;
+        Top = _bounds.Y / _scaleY;
+        Width = _bounds.Width / _scaleX;
+        Height = _bounds.Height / _scaleY;
+        ScreenGeometry.Rect = new Rect(0, 0, Width, Height);
+
+        Debug.WriteLine($"DEBUG: ApplyRenderMetrics renderScale=({_scaleX:F3},{_scaleY:F3}) physBounds={_bounds} window=({Left:F1},{Top:F1},{Width:F1}x{Height:F1})");
     }
 
     protected override void OnPreviewKeyDown(KeyEventArgs e)
@@ -144,6 +209,9 @@ public partial class ScreenshotWindow : Window
             IntPtr target = WindowUnderCursor(pt);
             if (target == IntPtr.Zero || IsDesktopWindow(target))
             {
+                if (_lastEdgeTarget != IntPtr.Zero)
+                    Debug.WriteLine("DEBUG: EdgeDetect -> none (desktop/empty)");
+                _lastEdgeTarget = IntPtr.Zero;
                 ClearSelection();               // 无有效目标（含桌面背景）：清空选区
                 this.Cursor = Cursors.Cross;
             }
@@ -157,9 +225,17 @@ public partial class ScreenshotWindow : Window
                     NativeMethods.GetWindowRect(target, out rect);
                 }
 
-                // 物理窗口矩形转窗口本地坐标（96dpi 下与 DIP 1:1，与 e.GetPosition(this) 同帧）。
-                Rect selection = new Rect(rect.Left - _bounds.X, rect.Top - _bounds.Y,
-                                          rect.Right - rect.Left, rect.Bottom - rect.Top);
+                // 物理窗口矩形 → DIP 窗口本地坐标（与 e.GetPosition(this) 同帧）。
+                // 寻边矩形为物理像素，除以 DPI 系数转 DIP 后才能与 DIP 选区/几何混用。
+                Rect selection = new Rect((rect.Left - _bounds.X) / _scaleX, (rect.Top - _bounds.Y) / _scaleY,
+                                          (rect.Right - rect.Left) / _scaleX, (rect.Bottom - rect.Top) / _scaleY);
+
+                // 目标变化时才记录，避免每帧刷屏；便于排查"巡边失败"。
+                if (target != _lastEdgeTarget)
+                {
+                    _lastEdgeTarget = target;
+                    Debug.WriteLine($"DEBUG: EdgeDetect -> hwnd=0x{target.ToInt64():X} physRect={rect} dipSel={selection}");
+                }
                 _currentSelection = selection;       // 寻边成功：实时存储
                 ApplySelection(selection);
 
@@ -234,10 +310,11 @@ public partial class ScreenshotWindow : Window
     {
         // 严格夹取到 base-image 边界：寻边窗口可能超出虚拟屏、拖拽可能产生负值，
         // 越界矩形会让 CroppedBitmap 抛 ArgumentException。夹取后只裁可见部分。
-        int x = Math.Clamp((int)selection.X, 0, _baseImage.PixelWidth);
-        int y = Math.Clamp((int)selection.Y, 0, _baseImage.PixelHeight);
-        int w = Math.Clamp((int)selection.Width, 0, _baseImage.PixelWidth - x);
-        int h = Math.Clamp((int)selection.Height, 0, _baseImage.PixelHeight - y);
+        // 选区为 DIP（窗口本地），底图为物理像素：乘 DPI 系数转物理后再裁剪。
+        int x = Math.Clamp((int)(selection.X * _scaleX), 0, _baseImage.PixelWidth);
+        int y = Math.Clamp((int)(selection.Y * _scaleY), 0, _baseImage.PixelHeight);
+        int w = Math.Clamp((int)(selection.Width * _scaleX), 0, _baseImage.PixelWidth - x);
+        int h = Math.Clamp((int)(selection.Height * _scaleY), 0, _baseImage.PixelHeight - y);
 
         Debug.WriteLine($"DEBUG: Capture Rect - x={x}, y={y}, w={w}, h={h}");
 
@@ -269,7 +346,8 @@ public partial class ScreenshotWindow : Window
 
         if (after != SnippingAfterScreenshot.CopyOnly)
         {
-            new PinWindow(crop, _bounds.X + x, _bounds.Y + y).Show();
+            // 传截图同屏 scale，保证贴图 1:1（贴图与截图同显示器，DPI 一致）。
+            new PinWindow(crop, _bounds.X + x, _bounds.Y + y, _scaleX, _scaleY).Show();
         }
     }
 

@@ -28,7 +28,12 @@ internal sealed class ActionExecutor
     {
         if (item.Command == "sys:snipping")
         {
-            var (source, bounds) = _screenshotService.Capture();
+            var (source, bounds, fallback) = _screenshotService.Capture();
+            if (fallback)
+            {
+                // AllMonitors 在主副屏 DPI 不一致时无法跨屏 1:1 渲染，已回退为光标所在屏。
+                Toast.Show("主副屏缩放不一致，已截取当前屏", 3000);
+            }
             var window = new ScreenshotWindow(source, bounds);
             window.ShowDialog(); // modal — blocks until the user closes it
             return;

@@ -69,7 +69,7 @@
 覆盖层视觉由 `SettingsModel.Snipping` 注入（构造函数读 `SettingsManager.Instance.Settings.Snipping`，赋值 `MaskPath.Fill`（黑色 + `MaskAlpha` 浓度）/ `HighlightBorder.BorderBrush`）；红框厚度（2px）与窗口 `Background`（Black）已硬编码，不再可配。`DragThreshold` 取自 `SnippingSettings.DragThreshold`（readonly 字段，双模态状态机逻辑不变）。
 
 ### 三层结构（`RootGrid`）
-1. `BackgroundImage` —— 全屏底图（`Stretch="None"`）；
+1. `BackgroundImage` —— 全屏底图（`Stretch="Fill"` + `HighQuality`，铺满窗口 = `bounds/scale` DIP，物理像素 1:1，docs/02 §5）；
 2. 暗罩 `Path`（`MaskPath`）—— 黑色 + `MaskAlpha` 浓度（默认 0.4 ≈ #66000000），用 `CombinedGeometry(Exclude)` 在 `ScreenGeometry`（整屏）中挖出 `CutoutGeometry`（选区）形成镂空；
 3. `HighlightBorder` —— 选区红框（`BorderColor=#FF0000` / `BorderThickness=2`），默认 `Hidden`。
 
@@ -97,7 +97,7 @@ ESC / 右键取消关闭。
 `WindowStyle=None` / `AllowsTransparency=True` / `Topmost=True` / `ShowInTaskbar=True` / `ResizeMode=CanResize`。
 
 ### 两层结构
-`PinBorder`（边框层，向外生长）+ `PinImage`（`Stretch=None`，`Margin=border` 向内缩，内容面积恒为 imgW×imgH）；两层 `IsHitTestVisible=False`，命中测试落到 Window。`ResizeMode=CanResize` 但图片 `Stretch=None` 不随窗口缩放，"重置大小"仅重算窗口外接矩形。
+`PinBorder`（边框层，向外生长）+ `PinImage`（`Stretch=Fill` + 显式 DIP 尺寸 `PixelWidth/scale`，`Margin=0`，`ContentRoot.Margin=border` 向内缩，内容面积恒为 imgW×imgH 物理 1:1，docs/02 §5）；两层 `IsHitTestVisible=False`，命中测试落到 Window。`ResizeMode=CanResize` 但图片显式尺寸 + `Stretch=Fill` 不随窗口缩放，"重置大小"仅重算窗口外接矩形。
 
 ### 交互
 左键 `DragMove`（系统模态移动，无抖动）/ 左键双击关闭 / 右键菜单。

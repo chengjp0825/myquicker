@@ -1,12 +1,15 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
+using MyQuicker.Interop;
 using MyQuicker.Services;
 using Clipboard = System.Windows.Clipboard;
 using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
@@ -44,6 +47,14 @@ public partial class PinWindow : Window
     private readonly double _naturalWidth;
     private readonly double _naturalHeight;
 
+    /// <summary>贴图内容左上角目标屏幕物理坐标（截图结算传入，ReapplyMetrics 基位）。</summary>
+    private readonly double _screenX;
+    private readonly double _screenY;
+
+    /// <summary>DIP↔物理像素 缩放系数。初始为 ScreenshotWindow 传入值，SourceInitialized/DpiChanged 用 TransformToDevice 修正为窗口实际渲染 DPI（docs/02 §5）。</summary>
+    private double _scaleX;
+    private double _scaleY;
+
     /// <summary>当前旋转角度（0/90/180/270）。步进固定 90°。</summary>
     private double RotationAngle => (_rotationStep % 4) * _rotationStepDegrees;
 
@@ -69,9 +80,16 @@ public partial class PinWindow : Window
 
     /// <param name="screenX">贴图左上角目标屏幕横坐标（物理像素，来自截图结算）。</param>
     /// <param name="screenY">贴图左上角目标屏幕纵坐标（物理像素，来自截图结算）。</param>
-    public PinWindow(BitmapSource source, double screenX, double screenY)
+    /// <param name="scaleX">DIP↔物理像素 X 系数（截图所在显示器 DPI，保证贴图 1:1）。</param>
+    /// <param name="scaleY">DIP↔物理像素 Y 系数。</param>
+    public PinWindow(BitmapSource source, double screenX, double screenY, double scaleX, double scaleY)
     {
         InitializeComponent();
+
+        _screenX = screenX;
+        _screenY = screenY;
+        _scaleX = scaleX;
+        _scaleY = scaleY;
 
         // 关键视觉参数从统一配置注入（Per SPEC 重构 Step 3）。
         // 最小宽高（40×40）、阴影模糊半径（14）、旋转步进（90°）已硬编码，不再可配。
@@ -95,12 +113,9 @@ public partial class PinWindow : Window
 
         PinImage.Source = source;
 
-        // 先定位 Left/Top，再由 ApplyTransform → ApplyWindowSize 设定宽高，
-        // 确保窗口左上角对齐选区、宽高紧贴图片外接矩形（含边框）。
-        Left = screenX;
-        Top = screenY;
-
-        ApplyTransform();
+        // 用传入 scale 初算 PinImage 尺寸/定位；SourceInitialized 再用窗口实际渲染 DPI 修正
+        // （AllowsTransparency 等场景下渲染 DPI 可能与传入值不同，须用实际值才能 1:1，docs/02 §5）。
+        ReapplyMetrics();
 
         // 默认外观（docs/03 §6）：默认显示边界 + 默认批注模式，均可配置。
         _annotationModeEnabled = pin.DefaultAnnotationMode;
@@ -111,6 +126,54 @@ public partial class PinWindow : Window
             ApplyBorder(2);
         }
         ApplyAnnotationState();
+
+        SourceInitialized += OnSourceInitialized;
+    }
+
+    /// <summary>HWND 创建后：物理坐标强制定位 + 用实际渲染 DPI 重算尺寸，订阅 DPI 变化。</summary>
+    private void OnSourceInitialized(object? sender, EventArgs e)
+    {
+        // SetWindowPos 以物理坐标（贴图内容左上角）强制 HWND 落在目标显示器，触发该屏 DPI 赋值。
+        IntPtr hwnd = new WindowInteropHelper(this).Handle;
+        NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, (int)_screenX, (int)_screenY, 0, 0,
+            NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_NOSIZE);
+
+        ReapplyMetrics();
+        DpiChanged += OnDpiChanged;
+    }
+
+    /// <summary>窗口跨显示器后 DPI 变化：重算尺寸保持 1:1。</summary>
+    private void OnDpiChanged(object sender, System.Windows.DpiChangedEventArgs e)
+    {
+        ReapplyMetrics();
+    }
+
+    /// <summary>
+    /// 用窗口实际渲染 DPI（<see cref="PresentationSource.CompositionTarget.TransformToDevice"/>，
+    /// 已实现时读取，否则用当前 _scaleX/Y）重算 PinImage 尺寸、Left/Top、窗口外接尺寸。
+    /// 裁剪为物理像素，PinImage 用 actualScale 定尺寸 + Stretch=Fill → 渲染 ×actualScale = 物理像素 1:1，
+    /// 与框选物理尺寸一致（无论窗口被赋何 DPI）。
+    /// </summary>
+    private void ReapplyMetrics()
+    {
+        var src = PresentationSource.FromVisual(this);
+        if (src?.CompositionTarget is not null)
+        {
+            var m = src.CompositionTarget.TransformToDevice;
+            _scaleX = m.M11;
+            _scaleY = m.M22;
+        }
+
+        double bx = PinBorder.BorderThickness.Left; // 均匀边框（DIP）
+        PinImage.Width = _naturalWidth / _scaleX;
+        PinImage.Height = _naturalHeight / _scaleY;
+        // 内容左上角对齐 (screenX, screenY)；边框向外生长，窗口左上角反向偏移 bx。
+        Left = _screenX / _scaleX - bx;
+        Top = _screenY / _scaleY - bx;
+
+        ApplyTransform(); // 旋转/镜像 + ApplyWindowSize（按 _scaleX/Y 重算窗口外接尺寸）
+
+        Debug.WriteLine($"DEBUG: PinWindow ReapplyMetrics renderScale=({_scaleX:F3},{_scaleY:F3}) natural={_naturalWidth}x{_naturalHeight} screen=({_screenX},{_screenY}) border={bx}");
     }
 
     // -----------------------------------------------------------------------
@@ -407,15 +470,11 @@ public partial class PinWindow : Window
             ApplyBorder(mi.IsChecked ? 2 : 0);
     }
 
-    /// <summary>应用边框厚度：设置 PinBorder，向外生长偏移 Left/Top，重算窗口外接尺寸。</summary>
+    /// <summary>应用边框厚度：设置 PinBorder，经 ReapplyMetrics 重算 Left/Top（边框向外生长）与窗口外接尺寸。</summary>
     private void ApplyBorder(double thickness)
     {
-        double old = PinBorder.BorderThickness.Left;
         PinBorder.BorderThickness = new Thickness(thickness);
-        // 边框向外生长：窗口左上角反向偏移 thickness-old，图片内容屏幕坐标不变。
-        Left -= (thickness - old);
-        Top -= (thickness - old);
-        ApplyWindowSize();
+        ReapplyMetrics();
     }
 
     /// <summary>重置大小：恢复 1:1 像素比例，窗口尺寸回归当前旋转方向的外接矩形。</summary>
@@ -473,13 +532,14 @@ public partial class PinWindow : Window
     /// 90/270 度时图片外接矩形宽高互换。窗口 = 图片外接矩形 + 两侧边框，
     /// 而 ContentRoot 通过 Margin=border 向内缩，图片内容面积恒为 imgW×imgH，
     /// 边框向外生长、不侵占图片内容。窗口边缘始终紧贴（边框 + 图片），无多余留白。
+    /// imgW/imgH 为物理像素，需除以 DPI 系数转 DIP 后再设窗口尺寸（docs/02 §5）。
     /// </summary>
     private void ApplyWindowSize()
     {
         bool swapped = (_rotationStep % 2) == 1;
-        double imgW = swapped ? _naturalHeight : _naturalWidth;
-        double imgH = swapped ? _naturalWidth : _naturalHeight;
-        double border = PinBorder.BorderThickness.Left; // 均匀边框
+        double imgW = (swapped ? _naturalHeight : _naturalWidth) / _scaleX;
+        double imgH = (swapped ? _naturalWidth : _naturalHeight) / _scaleY;
+        double border = PinBorder.BorderThickness.Left; // 均匀边框（DIP）
 
         Width = imgW + 2 * border;
         Height = imgH + 2 * border;

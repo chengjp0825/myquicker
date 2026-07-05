@@ -78,14 +78,15 @@
 
 ## 5. 多屏坐标系（VirtualBounds）
 
-多屏环境下主屏左侧/上方的显示器会使原点为负。截图范围由 `SnippingSettings.CaptureScope` 决定：`AllMonitors` 取所有屏幕 `Min(X/Y)` 与 `Max(Right/Bottom)` 构成虚拟屏矩形（X/Y 可能为负）；`CurrentMonitor` 取光标所在 `Screen.Bounds`（单屏，原点通常非负）：
-- `ScreenshotWindow` 的 `Left/Top/Width/Height` 直接绑定 `bounds`（物理像素）；
-- 鼠标物理坐标转窗口局部坐标统一用 `pt - _bounds.X/Y`，窗口局部坐标与底图像素 1:1 对应，`CroppedBitmap` 即按此裁剪；
+多屏环境下主屏左侧/上方的显示器会使原点为负。截图范围由 `SnippingSettings.CaptureScope` 决定：`AllMonitors` 取所有屏幕 `Min(X/Y)` 与 `Max(Right/Bottom)` 构成虚拟屏矩形（X/Y 可能为负）；`CurrentMonitor` 取光标所在 `Screen.Bounds`（单屏，原点通常非负）。主副屏 **DPI 不一致** 时 `AllMonitors` 无法跨屏 1:1 渲染，`ScreenshotService.ComputeBounds` 检测到混合 DPI 自动回退为光标所在屏，并由 `ActionExecutor` toast 告知（`Capture` 返回 `FallbackToCurrent` 标志）：
+- `ScreenshotWindow` 初始 scale 取 `DpiHelper.ScaleForBounds(bounds)`（bounds 中心所在显示器 `GetDpiForMonitor`）作估计；`SourceInitialized` 用 `SetWindowPos` 以物理坐标强制 HWND 到 bounds（确保落在目标显示器），再用 `CompositionTarget.TransformToDevice`（窗口**实际渲染 DPI**）修正 scale——`AllowsTransparency` 等场景下渲染 DPI 可能与 `GetDpiForMonitor` 不同，裁剪必须用实际渲染 DPI 才能与显示一致；`DpiChanged` 时重算。`Left/Top/Width/Height` = `bounds` 物理像素 ÷ scale（DIP）；
+- 鼠标物理坐标转窗口局部坐标统一用 `(pt - _bounds.X/Y) / scale`，窗口局部 DIP 与底图物理像素经 `× scale` 互转后 1:1 对应，`CroppedBitmap` 按物理像素裁剪；
+- `PinWindow` 同样在 `SourceInitialized`/`DpiChanged` 用自身 `TransformToDevice`（实际渲染 DPI）重算 `PinImage` 尺寸与定位（`ReapplyMetrics`），保证贴图按裁剪物理像素 1:1 渲染——与 ScreenshotWindow 是否同 DPI 无关，框选物理尺寸即贴图尺寸；
 - `MainWindow` 定位用 `ToLogical(POINT)`（封装 `PresentationSource.CompositionTarget.TransformFromDevice`）把物理坐标转逻辑坐标后再居中。
 
 > 不要用 `SystemParameters.PrimaryScreenWidth` 或单屏 `Bounds` 做跨屏计算。
 
-> **DPI 注意**：`ScreenshotWindow` / `PinWindow` 直接用物理像素设 `Left/Top/Width/Height`，依赖 96 DPI（100% 缩放）下 DIP 与物理像素 1:1 的假设；非 100% 缩放下覆盖层/贴图定位会偏移。`MainWindow` 走 `TransformFromDevice` 不受影响。
+> **DPI 处理**：`ScreenshotWindow` 用窗口实际渲染 DPI（`TransformToDevice`，`SourceInitialized`/`DpiChanged` 修正）在物理像素 ↔ DIP 间换算，覆盖层在各屏任意缩放下 1:1 对齐、裁剪与框选一致。`PinImage` 用 `Stretch=Fill` + 显式 DIP 尺寸（`PixelWidth/scale`）确保底图物理像素 1:1；`BackgroundImage` 同样 `Stretch=Fill` + `HighQuality` 降采样。`CurrentMonitor` 在任意单屏精确；`AllMonitors` 在 uniform-DPI 多屏精确，混合 DPI 回退当前屏（单 WPF 窗口无法跨混合 DPI 1:1 渲染）。`MainWindow` 走 `TransformFromDevice` 不受影响。
 
 ## 6. 唤醒手势防重入
 

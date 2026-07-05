@@ -9,8 +9,11 @@
         WindowStartupLocation="Manual">
     <!-- Background/MaskColor/BorderColor/BorderThickness 由 code-behind 从 SettingsModel.Snipping 注入。 -->
     <Grid x:Name="RootGrid" Background="Transparent" IsHitTestVisible="True">
-        <!-- Base screenshot layer -->
-        <Image x:Name="BackgroundImage" Stretch="None" />
+        <!-- Base screenshot layer：Stretch=Fill 铺满窗口（窗口尺寸=bounds/scale DIP，
+             底图=bounds 物理像素，Fill 后物理 1:1，非 100% 缩放不放大）。
+             HighQuality：物理→DIP 降采样平滑，保证覆盖层清晰。 -->
+        <Image x:Name="BackgroundImage" Stretch="Fill"
+               RenderOptions.BitmapScalingMode="HighQuality" />
 
         <!-- Dark mask with a hole punched out (Exclude) for the selection -->
         <Path x:Name="MaskPath" IsHitTestVisible="True">

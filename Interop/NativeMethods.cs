@@ -213,6 +213,9 @@ internal static class NativeMethods
     /// <summary>Does not activate the window (pairs with WS_EX_NOACTIVATE).</summary>
     public const uint SWP_NOACTIVATE = 0x0010;
 
+    /// <summary>Retains current z-order (hWndInsertAfter ignored).</summary>
+    public const uint SWP_NOZORDER = 0x0004;
+
     /// <summary>
     /// Changes a window's size, position, and z order. Used at wake-up to
     /// re-assert topmost without stealing focus (SWP_NOACTIVATE).
@@ -220,4 +223,29 @@ internal static class NativeMethods
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+    // -----------------------------------------------------------------------
+    // Per-monitor DPI (主副屏缩放不一致时按目标显示器取真实 DPI, docs/02 §5)
+    // -----------------------------------------------------------------------
+
+    /// <summary>MonitorFromPoint / MonitorFromRect: 返回最近显示器（光标/矩形不在任何屏上时不返回 NULL）。</summary>
+    public const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
+
+    /// <summary>检索包含指定点的显示器句柄。</summary>
+    [DllImport("user32.dll")]
+    public static extern IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
+
+    /// <summary>检索与指定矩形相交面积最大的显示器句柄。</summary>
+    [DllImport("user32.dll")]
+    public static extern IntPtr MonitorFromRect(ref RECT lprc, uint dwFlags);
+
+    /// <summary>GetDpiForMonitor 的 DPI 类型：取有效 DPI（含用户缩放设置）。</summary>
+    public const int MDT_EFFECTIVE_DPI = 0;
+
+    /// <summary>
+    /// 取指定显示器的有效 DPI（像素/英寸）。100% 缩放=96，150%=144。Win10 1607+。
+    /// 失败返回非零 HRESULT，调用方按主屏 DPI 兜底。
+    /// </summary>
+    [DllImport("shcore.dll")]
+    public static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
 }
