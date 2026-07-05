@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
+    <!-- Debug 为 Exe（控制台子系统）：dotnet watch run / dotnet run 时 Debug.WriteLine 经
+         ConsoleTraceListener → stdout 直接出现在终端；Release 为 WinExe（托盘常驻无控制台）。 -->
+    <OutputType Condition="'$(Configuration)'=='Debug'">Exe</OutputType>
+    <OutputType Condition="'$(Configuration)'=='Release'">WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

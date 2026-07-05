@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Windows;
 using System.Windows.Forms;
 using MyQuicker.Interop;
@@ -21,6 +22,23 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+#if DEBUG
+        // DEBUG 日志：Debug.WriteLine 同时写文件 + 控制台。
+        // · 控制台：ConsoleTraceListener 写 stdout——Debug 配置 OutputType=Exe（控制台子系统），
+        //   `dotnet watch run` / `dotnet run` 把子进程 stdout 接到终端，日志直接出现。
+        // · 文件：exe 同目录 debug.log（FileShare.ReadWrite 可运行时 tail），FileMode.Create 每次清空。
+        // 新增调试日志一律用 Debug.WriteLine（由 ConsoleTraceListener 统一桥接到终端，勿直接 Console.WriteLine）。
+        try
+        {
+            var logPath = Path.Combine(AppContext.BaseDirectory, "debug.log");
+            var fs = new FileStream(logPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+            Trace.AutoFlush = true;
+            Trace.Listeners.Add(new TextWriterTraceListener(fs));
+            Trace.Listeners.Add(new ConsoleTraceListener(useErrorStream: false));
+        }
+        catch { /* 日志初始化失败不影响主流程 */ }
+#endif
+
         // 全局崩溃兜底：未捕获异常记录日志并拦截，避免常驻托盘进程闪退
         // （StackOverflow/OOM 等不可恢复异常不会触发此事件）。
         this.DispatcherUnhandledException += App_DispatcherUnhandledException;
