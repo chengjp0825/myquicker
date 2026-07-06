@@ -141,6 +141,7 @@ public partial class MainWindow : Window, IMenuPresenter
         const double rootPaddingV = 24; // 上 12 + 下 12
         const double bottomBarHeight = 44;
         const double buttonMargin = 10; // 左右或上下各 5
+        const double safetyGap = 2;     // 防止顶满边界导致 WrapPanel 提前换行
 
         int columns = Math.Clamp(menu.GridColumns, 2, 3);
         int visibleRows = columns; // 2×2 或 3×3
@@ -151,8 +152,8 @@ public partial class MainWindow : Window, IMenuPresenter
         double cellWidth = contentWidth / columns;
         double cellHeight = actionsHeight / visibleRows;
 
-        double buttonWidth = cellWidth - buttonMargin;
-        double buttonHeight = cellHeight - buttonMargin;
+        double buttonWidth = cellWidth - buttonMargin - safetyGap;
+        double buttonHeight = cellHeight - buttonMargin - safetyGap;
 
         Resources["MenuButtonWidth"] = Math.Max(buttonWidth, 32);
         Resources["MenuButtonHeight"] = Math.Max(buttonHeight, 32);
