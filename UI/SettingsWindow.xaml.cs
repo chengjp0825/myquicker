@@ -213,6 +213,7 @@ public partial class SettingsWindow : Window
                 Pin = _pin,
             },
             MenuGroups = _menuGroups,
+            Commands = _settingsManager.Settings.Commands,
         };
 
         try
