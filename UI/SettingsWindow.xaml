@@ -151,7 +151,7 @@
                             </DataGridTemplateColumn>
                             <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="*"
                                                 EditingElementStyle="{StaticResource FlatTextBox}" />
-                            <DataGridTextColumn Header="命令" Binding="{Binding CommandId}" Width="2*"
+                            <DataGridTextColumn Header="命令" Binding="{Binding Command}" Width="2*"
                                                 EditingElementStyle="{StaticResource FlatTextBox}" />
                             <DataGridTextColumn Header="参数" Binding="{Binding Arguments}" Width="2*"
                                                 EditingElementStyle="{StaticResource FlatTextBox}" />

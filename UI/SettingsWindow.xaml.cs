@@ -202,6 +202,16 @@ public partial class SettingsWindow : Window
             _menuGroups.Add(defaultGroup);
         }
 
+        // 保存前把用户在网格中输入/编辑的 Command 字符串迁移到 Commands 目录，
+        // 确保每个 ActionItem 都有稳定的 CommandId，同时保留用户在网格中可见的路径/URL。
+        var commandCatalog = Clone(_settingsManager.Settings.Commands);
+        var migrationSettings = new Settings
+        {
+            MenuGroups = _menuGroups,
+            Commands = commandCatalog,
+        };
+        SettingsManager.MigrateActionCommandsIntoCatalog(migrationSettings);
+
         // 构建全新的 Settings DTO，禁止就地修补原有 live DTO。
         var newSettings = new Settings
         {
@@ -213,7 +223,7 @@ public partial class SettingsWindow : Window
                 Pin = _pin,
             },
             MenuGroups = _menuGroups,
-            Commands = _settingsManager.Settings.Commands,
+            Commands = commandCatalog,
         };
 
         try

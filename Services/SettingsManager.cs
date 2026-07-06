@@ -373,7 +373,7 @@ internal sealed class SettingsManager
     /// 将旧版 <see cref="ActionItem.Command"/> 字符串迁移到 <see cref="Settings.Commands"/> 目录，
     /// 并用 <see cref="ActionItem.CommandId"/> 指向新条目。
     /// </summary>
-    private static void MigrateActionCommandsIntoCatalog(Settings settings)
+    internal static void MigrateActionCommandsIntoCatalog(Settings settings)
     {
         var catalog = settings.Commands;
         foreach (var group in settings.MenuGroups)
