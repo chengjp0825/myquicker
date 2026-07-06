@@ -19,4 +19,9 @@
     <InternalsVisibleTo Include="MyQuicker.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- 测试项目位于仓库内，但不应被主应用编译。 -->
+    <Compile Remove="tests\**\*.cs" />
+  </ItemGroup>
+
 </Project>
