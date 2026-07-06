@@ -8,7 +8,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using MyQuicker.Interop;
-using MyQuicker.Models;
+using MyQuicker.Domain.DTO;
 using MyQuicker.Services;
 using static MyQuicker.Interop.NativeMethods;
 using Cursors = System.Windows.Input.Cursors;
@@ -46,15 +46,29 @@ public partial class ScreenshotWindow : Window
     /// <summary>上次寻边命中的窗口句柄，用于"目标变化时"才写日志，避免刷屏。</summary>
     private IntPtr _lastEdgeTarget = IntPtr.Zero;
 
-    /// <summary>判定"点击 vs 拖拽"的位移阈值（DIP）。超过即升级为拖拽。值取自 SettingsModel.Snipping.DragThreshold。</summary>
-    private readonly double DragThreshold = SettingsManager.Instance.Settings.Snipping.DragThreshold;
+    /// <summary>判定"点击 vs 拖拽"的位移阈值（DIP）。超过即升级为拖拽。</summary>
+    private readonly double _dragThreshold;
 
-    public ScreenshotWindow(BitmapSource source, Rectangle bounds)
+    /// <summary>截图后行为配置（剪贴板/钉贴图/两者）。</summary>
+    private readonly SnippingAfterScreenshot _afterScreenshot;
+
+    /// <summary>贴图窗口视觉参数。</summary>
+    private readonly PinSettings _pinSettings;
+
+    public ScreenshotWindow(BitmapSource source, Rectangle bounds, SnippingSettings snippingSettings, PinSettings pinSettings)
     {
+        if (snippingSettings is null)
+            throw new ArgumentNullException(nameof(snippingSettings));
+        if (pinSettings is null)
+            throw new ArgumentNullException(nameof(pinSettings));
+
         InitializeComponent();
 
         _baseImage = source;
         _bounds = bounds;
+        _dragThreshold = snippingSettings.DragThreshold;
+        _afterScreenshot = snippingSettings.AfterScreenshot;
+        _pinSettings = pinSettings;
 
         // 按 bounds 所在显示器取真实 DPI（主副屏缩放不一致时各屏分别取，docs/02 §5）。
         var (sx, sy) = DpiHelper.ScaleForBounds(bounds);
@@ -74,18 +88,15 @@ public partial class ScreenshotWindow : Window
         Debug.WriteLine($"DEBUG: ScreenshotWindow bounds={bounds} scale=({_scaleX:F3},{_scaleY:F3}) window=({Left:F1},{Top:F1},{Width:F1}x{Height:F1})");
 
         // 关键视觉参数从统一配置注入（Per SPEC 重构 Step 3）。
-        // 红框厚度（2px）与覆盖层背景色（Black）已硬编码，不再可配。
-        var snipping = SettingsManager.Instance.Settings.Snipping;
-        Background = System.Windows.Media.Brushes.Black;
+        // 红框厚度（2px）已硬编码，不再可配；覆盖层背景色在 XAML 中设为 Black。
         // 暗罩恒为黑色，浓度（alpha）可配：0.4 → #66000000。
         MaskPath.Fill = new SolidColorBrush(System.Windows.Media.Color.FromArgb(
-            (byte)(255 * snipping.MaskAlpha), 0, 0, 0));
-        HighlightBorder.BorderBrush = BrushHelper.ToBrush(snipping.BorderColor);
+            (byte)(255 * snippingSettings.MaskAlpha), 0, 0, 0));
+        HighlightBorder.BorderBrush = BrushHelper.ToBrush(snippingSettings.BorderColor);
         HighlightBorder.BorderThickness = new Thickness(2);
 
-        // HWND 创建后用实际渲染 DPI（TransformToDevice）修正 scale——AllowsTransparency 等
-        // 场景下渲染 DPI 可能与 GetDpiForMonitor 不同（如固定为主屏 DPI）。用实际值才能保证
-        // 显示与裁剪一致。SourceInitialized 在首次渲染前触发，重设尺寸无闪烁。
+        // HWND 创建后用 GetDpiForWindow(hwnd) 取确定性 DPI——AllowsTransparency=False
+        // 配合 per-monitor V2 manifest 后，该值即为窗口所在显示器真实缩放，彻底解决 KI-1。
         SourceInitialized += OnSourceInitialized;
     }
 
@@ -99,14 +110,15 @@ public partial class ScreenshotWindow : Window
             _bounds.Width, _bounds.Height,
             NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
 
-        ApplyRenderMetrics();
+        ApplyRenderMetrics(hwnd);
         DpiChanged += OnDpiChanged;
     }
 
     /// <summary>窗口跨显示器后 DPI 变化：重算尺寸保持 1:1（如初始放置触发 WM_DPICHANGED）。</summary>
     private void OnDpiChanged(object sender, System.Windows.DpiChangedEventArgs e)
     {
-        ApplyRenderMetrics();
+        IntPtr hwnd = new WindowInteropHelper(this).Handle;
+        ApplyRenderMetrics(hwnd);
     }
 
     /// <summary>
@@ -114,14 +126,22 @@ public partial class ScreenshotWindow : Window
     /// 重算 _scaleX/Y 与 Left/Top/Width/Height/ScreenGeometry。裁剪与显示共用此 scale，
     /// 保证框选区域与裁出图像 1:1。
     /// </summary>
-    private void ApplyRenderMetrics()
+    private void ApplyRenderMetrics(IntPtr hwnd)
     {
-        var src = PresentationSource.FromVisual(this);
-        if (src?.CompositionTarget is not null)
+        var (sx, sy) = DpiHelper.ScaleForWindow(hwnd);
+        _scaleX = sx;
+        _scaleY = sy;
+
+        // 兜底：API 不可用或返回值异常时回退到实际渲染 DPI。
+        if (_scaleX <= 0 || _scaleY <= 0)
         {
-            var m = src.CompositionTarget.TransformToDevice;
-            _scaleX = m.M11;
-            _scaleY = m.M22;
+            var src = PresentationSource.FromVisual(this);
+            if (src?.CompositionTarget is not null)
+            {
+                var m = src.CompositionTarget.TransformToDevice;
+                _scaleX = m.M11;
+                _scaleY = m.M22;
+            }
         }
 
         Left = _bounds.X / _scaleX;
@@ -131,6 +151,23 @@ public partial class ScreenshotWindow : Window
         ScreenGeometry.Rect = new Rect(0, 0, Width, Height);
 
         Debug.WriteLine($"DEBUG: ApplyRenderMetrics renderScale=({_scaleX:F3},{_scaleY:F3}) physBounds={_bounds} window=({Left:F1},{Top:F1},{Width:F1}x{Height:F1})");
+    }
+
+    /// <summary>窗口关闭时释放图片源、Brush、几何、鼠标捕获与事件订阅，避免资源泄漏。</summary>
+    protected override void OnClosed(EventArgs e)
+    {
+        BackgroundImage.Source = null;
+        MaskPath.Fill = null;
+        HighlightBorder.BorderBrush = null;
+        CutoutGeometry.Rect = new Rect(0, 0, 0, 0);
+
+        if (_isDragging)
+            ReleaseMouseCapture();
+
+        SourceInitialized -= OnSourceInitialized;
+        DpiChanged -= OnDpiChanged;
+
+        base.OnClosed(e);
     }
 
     protected override void OnPreviewKeyDown(KeyEventArgs e)
@@ -183,7 +220,7 @@ public partial class ScreenshotWindow : Window
         if (!_isDragging && e.LeftButton == MouseButtonState.Pressed)
         {
             double delta = (p - _mouseDownPoint).Length;
-            if (delta > DragThreshold)
+            if (delta > _dragThreshold)
             {
                 _isDragging = true;
                 _isPotentialDrag = true;
@@ -328,9 +365,7 @@ public partial class ScreenshotWindow : Window
         // 结算：按 AfterScreenshot 决定写剪贴板 / 钉贴图 / 两者。
         // 选区左上角的绝对屏幕坐标 = 虚拟屏原点 + 窗口本地坐标，让贴图落在截图原位。
         // 用 Show()（非模态）打开，确保截图罩 Close() 后贴图窗口仍存活。
-        var after = SettingsManager.Instance.Settings.Snipping.AfterScreenshot;
-
-        if (after != SnippingAfterScreenshot.PinOnly)
+        if (_afterScreenshot != SnippingAfterScreenshot.PinOnly)
         {
             try
             {
@@ -344,10 +379,10 @@ public partial class ScreenshotWindow : Window
             }
         }
 
-        if (after != SnippingAfterScreenshot.CopyOnly)
+        if (_afterScreenshot != SnippingAfterScreenshot.CopyOnly)
         {
             // 传截图同屏 scale，保证贴图 1:1（贴图与截图同显示器，DPI 一致）。
-            new PinWindow(crop, _bounds.X + x, _bounds.Y + y, _scaleX, _scaleY).Show();
+            new PinWindow(crop, _bounds.X + x, _bounds.Y + y, _scaleX, _scaleY, _pinSettings).Show();
         }
     }
 
@@ -381,10 +416,17 @@ public partial class ScreenshotWindow : Window
     private IntPtr WindowUnderCursor(POINT pt)
     {
         IntPtr hwnd = new WindowInteropHelper(this).Handle;
-        int ex = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
-        NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, ex | NativeMethods.WS_EX_TRANSPARENT);
-        IntPtr target = NativeMethods.WindowFromPoint(pt);
-        NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, ex); // restore immediately
-        return target;
+        int originalEx = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
+        try
+        {
+            NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, originalEx | NativeMethods.WS_EX_TRANSPARENT);
+            return NativeMethods.WindowFromPoint(pt);
+        }
+        finally
+        {
+            // 无论 WindowFromPoint / GetWindowLong / SetWindowLong 是否抛出，
+            // 必须恢复原始扩展样式，否则覆盖层将永久保持点击穿透状态。
+            NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, originalEx);
+        }
     }
 }

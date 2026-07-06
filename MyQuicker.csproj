@@ -6,10 +6,17 @@
     <OutputType Condition="'$(Configuration)'=='Debug'">Exe</OutputType>
     <OutputType Condition="'$(Configuration)'=='Release'">WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- WFAC010 是 WinForms 的 analyzer，对 WPF 使用 app.manifest 声明 DPI awareness 的场景误报，此处抑制。 -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MyQuicker.Tests" />
+  </ItemGroup>
 
 </Project>

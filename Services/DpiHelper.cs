@@ -65,6 +65,19 @@ internal static class DpiHelper
         return true;
     }
 
+    /// <summary>
+    /// 取指定窗口 HWND 所在显示器的 DPI 缩放。相比 <see cref="ScaleForBounds"/ >，
+    /// 此方法不依赖透明窗的 WPF 渲染 DPI，能确定性解决 KI-1 中副屏缩放误判问题。
+    /// </summary>
+    public static (double sx, double sy) ScaleForWindow(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero) return (PrimaryScaleX, PrimaryScaleY);
+        uint dpi = NativeMethods.GetDpiForWindow(hwnd);
+        if (dpi == 0) return (PrimaryScaleX, PrimaryScaleY);
+        double scale = dpi / 96.0;
+        return (scale, scale);
+    }
+
     private static (double sx, double sy) ScaleForHmonitor(IntPtr hmon)
     {
         if (hmon == IntPtr.Zero) return (PrimaryScaleX, PrimaryScaleY);

@@ -248,4 +248,12 @@ internal static class NativeMethods
     /// </summary>
     [DllImport("shcore.dll")]
     public static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
+
+    /// <summary>
+    /// 取指定窗口所在显示器的有效 DPI（每英寸像素数）。Win10 1607+。
+    /// 返回 0 表示 API 不可用，调用方按主屏 DPI 兜底。
+    /// 相比 <see cref="GetDpiForMonitor"/ >，此方法直接按 HWND 取值，避免透明窗被误判为主屏 DPI。
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern uint GetDpiForWindow(IntPtr hwnd);
 }
