@@ -147,4 +147,46 @@ public class SettingsBuilderTests
         Assert.Equal(1.5, snipping.MaskAlpha);
         Assert.Equal(0.0, pin.DefaultOpacity);
     }
+
+    [Fact]
+    public void Build_DefaultGridColumnsIsThree()
+    {
+        var builder = new SettingsBuilder();
+
+        var settings = builder.Build(
+            new TriggerBinding(),
+            new List<MenuGroup>(),
+            new List<CommandDefinition>(),
+            new SnippingSettings(),
+            new MenuSettings(),
+            new PinSettings());
+
+        Assert.Equal(3, settings.Preferences.Menu.GridColumns);
+    }
+
+    [Fact]
+    public void Build_ClampsGridColumns()
+    {
+        var builder = new SettingsBuilder();
+        var tooSmall = new MenuSettings { GridColumns = 1 };
+        var tooLarge = new MenuSettings { GridColumns = 5 };
+
+        var smallSettings = builder.Build(
+            new TriggerBinding(),
+            new List<MenuGroup>(),
+            new List<CommandDefinition>(),
+            new SnippingSettings(),
+            tooSmall,
+            new PinSettings());
+        var largeSettings = builder.Build(
+            new TriggerBinding(),
+            new List<MenuGroup>(),
+            new List<CommandDefinition>(),
+            new SnippingSettings(),
+            tooLarge,
+            new PinSettings());
+
+        Assert.Equal(2, smallSettings.Preferences.Menu.GridColumns);
+        Assert.Equal(3, largeSettings.Preferences.Menu.GridColumns);
+    }
 }
