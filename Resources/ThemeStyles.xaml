@@ -506,4 +506,61 @@
         </Setter>
     </Style>
 
+    <!-- 唤醒菜单滚动条：极简暗色、自动隐藏 -->
+    <Style x:Key="MenuScrollBarThumbStyle" TargetType="Thumb">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border Background="#B0FFFFFF"
+                            CornerRadius="3"
+                            Width="4"
+                            HorizontalAlignment="Center" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="MenuScrollBarPageButtonStyle" TargetType="RepeatButton">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Border Background="Transparent" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="MenuScrollBarStyle" TargetType="ScrollBar">
+        <Setter Property="Width" Value="8" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Opacity" Value="0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Grid Background="Transparent" SnapsToDevicePixels="True">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageUpCommand"
+                                              Style="{StaticResource MenuScrollBarPageButtonStyle}" />
+                            </Track.DecreaseRepeatButton>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageDownCommand"
+                                              Style="{StaticResource MenuScrollBarPageButtonStyle}" />
+                            </Track.IncreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource MenuScrollBarThumbStyle}" />
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Opacity" Value="1" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
 </ResourceDictionary>
