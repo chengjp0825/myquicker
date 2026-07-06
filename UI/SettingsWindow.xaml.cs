@@ -34,8 +34,8 @@ public partial class SettingsWindow : Window
         InitializeComponent();
         _settingsManager = settingsManager ?? throw new System.ArgumentNullException(nameof(settingsManager));
 
-        // ActionStore.LoadForEdit() 返回内存缓存的深拷贝（隔离未保存编辑，无 IO）。
-        _menuGroups = ActionStore.LoadForEdit();
+        // 从 Settings 直接深拷贝 MenuGroups（隔离未保存编辑，无 IO）。
+        _menuGroups = CloneMenuGroups(settingsManager.Settings.MenuGroups);
 
         var s = settingsManager.Settings;
         // 对设置子对象做深拷贝：编辑期间仅修改副本，点“取消/X”不会污染内存中的 live DTO。
@@ -245,6 +245,24 @@ public partial class SettingsWindow : Window
             SettingsSaved?.Invoke(this, EventArgs.Empty);
             Close();
         });
+    }
+
+    /// <summary>深拷贝 MenuGroups 列表；编辑期与 live DTO 隔离。</summary>
+    private static List<MenuGroup> CloneMenuGroups(List<MenuGroup> source)
+    {
+        return source.Select(g => new MenuGroup
+        {
+            Id = g.Id,
+            DisplayName = g.DisplayName,
+            Icon = g.Icon,
+            Actions = g.Actions.Select(a => new ActionItem
+            {
+                Name = a.Name,
+                CommandId = a.CommandId,
+                Arguments = a.Arguments,
+                Icon = a.Icon,
+            }).ToList(),
+        }).ToList();
     }
 
     /// <summary>深拷贝 DTO 子对象；编辑期与 live DTO 隔离。</summary>
