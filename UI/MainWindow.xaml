@@ -36,8 +36,15 @@
                 </Grid.RowDefinitions>
 
                 <!-- 1. 动作矩阵区：使用 WrapPanel 让方块自动从左到右换行 -->
-                <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <ItemsControl x:Name="ActionsControl" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <ScrollViewer Grid.Row="0"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <ScrollViewer.Resources>
+                        <Style TargetType="ScrollBar" BasedOn="{StaticResource MenuScrollBarStyle}" />
+                    </ScrollViewer.Resources>
+                    <ItemsControl x:Name="ActionsControl"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <!-- WrapPanel 会根据窗口宽度自动折行，形成完美的网格 -->
@@ -47,28 +54,24 @@
 
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type dto:ActionItem}">
-                                <!-- 固定大小的方块按钮 (例如 76x76) -->
                                 <Button Click="ActionButton_Click"
                                         Style="{StaticResource MenuButtonStyle}"
-                                        Width="76" Height="76"
+                                        Width="{DynamicResource MenuButtonWidth}"
+                                        Height="{DynamicResource MenuButtonHeight}"
                                         Margin="5"
                                         Padding="4"
                                         Cursor="Hand">
                                     <Grid>
                                         <Grid.RowDefinitions>
-                                            <RowDefinition Height="*" /> <!-- 上半部分：大图标 -->
-                                            <RowDefinition Height="Auto" /> <!-- 下半部分：文字 -->
+                                            <RowDefinition Height="*" />
+                                            <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
 
-                                        <!-- 图标：Segoe MDL2 Assets 字形，码来自 ActionItem.Icon（hex），无效回退占位字 -->
-                                        <TextBlock Grid.Row="0"
-                                                   FontFamily="Segoe MDL2 Assets"
-                                                   Text="{Binding Icon, Converter={StaticResource HexToGlyphConverter}}"
-                                                   FontSize="24"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center"/>
+                                        <Viewbox Grid.Row="0" Stretch="Uniform" Margin="4">
+                                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                                       Text="{Binding Icon, Converter={StaticResource HexToGlyphConverter}}" />
+                                        </Viewbox>
 
-                                        <!-- 文字：小字号，底部居中，超长则显示省略号 -->
                                         <TextBlock Grid.Row="1"
                                                    Text="{Binding Name}"
                                                    FontSize="11"
