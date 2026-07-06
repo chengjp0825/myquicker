@@ -43,6 +43,9 @@ public partial class MainWindow : Window, IMenuPresenter
     /// <summary>关闭动画进行中，防止重复触发 Dismiss。</summary>
     private bool _isClosing;
 
+    /// <summary>动作执行中，防止用户在菜单关闭动画期间重复点击其他按钮。</summary>
+    private bool _actionExecutionInProgress;
+
     /// <summary>
     /// 运行时构造函数：所有依赖由组合根注入，View 内部禁止自行构造服务。
     /// </summary>
@@ -133,6 +136,26 @@ public partial class MainWindow : Window, IMenuPresenter
         // 按钮背景色经 DynamicResource 注入样式（MenuButtonStyle 引用 MenuButtonBackgroundBrush/...Hover）。
         Resources["MenuButtonBackgroundBrush"] = BrushHelper.SafeToBrush(menu.ButtonBackground, System.Windows.Media.Brushes.Transparent);
         Resources["MenuButtonHoverBackgroundBrush"] = BrushHelper.SafeToBrush(menu.ButtonHoverBackground, System.Windows.Media.Brushes.Transparent);
+
+        const double rootPaddingH = 24; // 左 14 + 右 10
+        const double rootPaddingV = 24; // 上 12 + 下 12
+        const double bottomBarHeight = 44;
+        const double buttonMargin = 10; // 左右或上下各 5
+
+        int columns = Math.Clamp(menu.GridColumns, 2, 3);
+        int visibleRows = columns; // 2×2 或 3×3
+
+        double contentWidth = Math.Max(menu.Width - rootPaddingH, 1);
+        double actionsHeight = Math.Max(menu.Height - rootPaddingV - bottomBarHeight, 1);
+
+        double cellWidth = contentWidth / columns;
+        double cellHeight = actionsHeight / visibleRows;
+
+        double buttonWidth = cellWidth - buttonMargin;
+        double buttonHeight = cellHeight - buttonMargin;
+
+        Resources["MenuButtonWidth"] = Math.Max(buttonWidth, 32);
+        Resources["MenuButtonHeight"] = Math.Max(buttonHeight, 32);
     }
 
     /// <summary>从传入的 MenuGroups 重绑动作列表（无 IO）。构造时与设置页保存后调用。</summary>
@@ -234,20 +257,25 @@ public partial class MainWindow : Window, IMenuPresenter
     {
         if (sender is Button btn && btn.DataContext is ActionItem item)
         {
+            if (_actionExecutionInProgress)
+                return;
+
+            _actionExecutionInProgress = true;
             _ = ExecuteActionAsync(item);
         }
     }
 
     /// <summary>
-    /// 异步执行动作：先请求关闭菜单，再离屏执行命令，最后回到 UI 线程处理结果。
+    /// 异步执行动作：先请求关闭菜单并等待关闭动画完成，再离屏执行命令，最后回到 UI 线程处理结果。
+    /// 等待 Closed 可确保截图等覆盖层出现时菜单已完全离开屏幕，避免把菜单截进底图或遮挡覆盖层。
     /// 使用 fire-and-forget Task 而非 async void，避免未处理异常直接崩进程。
     /// </summary>
     private async Task ExecuteActionAsync(ActionItem item)
     {
-        RaiseDismissRequested();
-
         try
         {
+            await WaitForMenuClosedAsync().ConfigureAwait(false);
+
             ActionResult result = await _executor.ExecuteAsync(_commandContext, item).ConfigureAwait(false);
             await Dispatcher.InvokeAsync(() => HandleActionResult(result));
         }
@@ -256,6 +284,31 @@ public partial class MainWindow : Window, IMenuPresenter
             Debug.WriteLine($"ERROR: 执行动作失败: {ex.Message}");
             await Dispatcher.InvokeAsync(() => Toast.Show("动作执行失败", 3000));
         }
+        finally
+        {
+            _actionExecutionInProgress = false;
+        }
+    }
+
+    /// <summary>
+    /// 等待菜单完全关闭（<see cref="_closed"/> 事件）。
+    /// 若菜单已关闭则立即返回；否则发起 <see cref="DismissRequested"/> 并订阅 Closed。
+    /// </summary>
+    private Task WaitForMenuClosedAsync()
+    {
+        if (!_isAwake)
+            return Task.CompletedTask;
+
+        var tcs = new TaskCompletionSource<object?>();
+        EventHandler? handler = null;
+        handler = (_, _) =>
+        {
+            _closed -= handler;
+            tcs.TrySetResult(null);
+        };
+        _closed += handler;
+        RaiseDismissRequested();
+        return tcs.Task;
     }
 
     /// <summary>
