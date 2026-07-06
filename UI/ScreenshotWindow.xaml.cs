@@ -26,6 +26,7 @@ public partial class ScreenshotWindow : Window
 {
     private readonly BitmapSource _baseImage;
     private readonly Rectangle _bounds;
+    private readonly SnippingSettings _snippingSettings;
 
     /// <summary>DIP↔物理像素 缩放系数（取窗口实际渲染 DPI，docs/02 §5）。窗口本地 DIP 与底图物理像素间转换用。初始为 GetDpiForMonitor 估计值，SourceInitialized/DpiChanged 用 TransformToDevice 修正。</summary>
     private double _scaleX;
@@ -47,6 +48,19 @@ public partial class ScreenshotWindow : Window
     /// <summary>判定"点击 vs 拖拽"的位移阈值（DIP）。超过即升级为拖拽。</summary>
     private readonly double _dragThreshold;
 
+    /// <summary>覆盖层当前是否处于点击穿透状态（寻边模式）。</summary>
+    private bool _overlayTransparent;
+
+    private HwndSource? _hwndSource;
+
+    // ----- 圆形鼠标像素放大镜 -----
+    private const int LoupeDiameter = 130;
+    private CroppedBitmap? _currentLoupeCrop;
+
+    private double _loupeZoomLevel;
+    private int _loupeSourceSize;
+    private double _loupePixelSize; // 每个物理像素在放大镜中占据的 DIP 边长
+
     /// <summary>用户成功选区后返回的物理屏幕坐标矩形；取消或未选区时为 null。</summary>
     public Rectangle? SelectedBounds { get; private set; }
 
@@ -59,6 +73,7 @@ public partial class ScreenshotWindow : Window
 
         _baseImage = source;
         _bounds = bounds;
+        _snippingSettings = snippingSettings;
         _dragThreshold = snippingSettings.DragThreshold;
 
         // 按 bounds 所在显示器取真实 DPI（主副屏缩放不一致时各屏分别取，docs/02 §5）。
@@ -81,14 +96,17 @@ public partial class ScreenshotWindow : Window
         // 关键视觉参数从统一配置注入（Per SPEC 重构 Step 3）。
         // 红框厚度（2px）已硬编码，不再可配；覆盖层背景色在 XAML 中设为 Black。
         // 暗罩恒为黑色，浓度（alpha）可配：0.4 → #66000000。
-        MaskPath.Fill = new SolidColorBrush(System.Windows.Media.Color.FromArgb(
-            (byte)(255 * snippingSettings.MaskAlpha), 0, 0, 0));
+        double alpha = Math.Clamp(snippingSettings.MaskAlpha, 0.0, 1.0);
+        MaskPath.Fill = new SolidColorBrush(System.Windows.Media.Color.FromArgb((byte)(255 * alpha), 0, 0, 0));
         HighlightBorder.BorderBrush = BrushHelper.ToBrush(snippingSettings.BorderColor);
         HighlightBorder.BorderThickness = new Thickness(2);
 
         // HWND 创建后用 GetDpiForWindow(hwnd) 取确定性 DPI——AllowsTransparency=False
         // 配合 per-monitor V2 manifest 后，该值即为窗口所在显示器真实缩放，彻底解决 KI-1。
         SourceInitialized += OnSourceInitialized;
+        Unloaded += OnUnloaded;
+
+        ApplyLoupeZoomMetrics();
     }
 
     /// <summary>HWND 创建后：物理坐标强制定位 + 用实际渲染 DPI 重算尺寸，并订阅 DPI 变化。</summary>
@@ -103,6 +121,18 @@ public partial class ScreenshotWindow : Window
 
         ApplyRenderMetrics(hwnd);
         DpiChanged += OnDpiChanged;
+
+        // 限制鼠标在当前截图范围内，防止 CurrentMonitor 模式下鼠标逃出覆盖层。
+        var rc = new NativeMethods.RECT
+        {
+            Left = _bounds.X,
+            Top = _bounds.Y,
+            Right = _bounds.Right,
+            Bottom = _bounds.Bottom
+        };
+        NativeMethods.ClipCursor(ref rc);
+
+        _hwndSource = HwndSource.FromHwnd(hwnd);
     }
 
     /// <summary>窗口跨显示器后 DPI 变化：重算尺寸保持 1:1（如初始放置触发 WM_DPICHANGED）。</summary>
@@ -141,6 +171,9 @@ public partial class ScreenshotWindow : Window
         Height = _bounds.Height / _scaleY;
         ScreenGeometry.Rect = new Rect(0, 0, Width, Height);
 
+        // scale 变化后，放大镜的 DIP 尺寸必须重新反向补偿，以保持 130×130 物理像素恒定。
+        ApplyLoupeZoomMetrics();
+
         Debug.WriteLine($"DEBUG: ApplyRenderMetrics renderScale=({_scaleX:F3},{_scaleY:F3}) physBounds={_bounds} window=({Left:F1},{Top:F1},{Width:F1}x{Height:F1})");
     }
 
@@ -157,20 +190,51 @@ public partial class ScreenshotWindow : Window
 
         SourceInitialized -= OnSourceInitialized;
         DpiChanged -= OnDpiChanged;
+        Unloaded -= OnUnloaded;
+
+        // 必须释放全局鼠标锁，防止截图窗口异常退出后光标仍被限制。
+        NativeMethods.ClipCursor(IntPtr.Zero);
+
+        // 释放放大镜高频临时引用。
+        ClearLoupeSource();
+        MagnifierLoupe.Visibility = Visibility.Collapsed;
+        MagnifierInfoPanel.Visibility = Visibility.Collapsed;
 
         base.OnClosed(e);
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        NativeMethods.ClipCursor(IntPtr.Zero);
     }
 
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
+        {
+            if (_isDragging)
+                ReleaseMouseCapture();
+            NativeMethods.ClipCursor(IntPtr.Zero);
+            ClearLoupeSource();
+            MagnifierLoupe.Visibility = Visibility.Collapsed;
+        MagnifierInfoPanel.Visibility = Visibility.Collapsed;
             Close();
+            e.Handled = true;
+            return;
+        }
         base.OnPreviewKeyDown(e);
     }
 
     protected override void OnMouseRightButtonDown(MouseButtonEventArgs e)
     {
+        if (_isDragging)
+            ReleaseMouseCapture();
+        NativeMethods.ClipCursor(IntPtr.Zero);
+        ClearLoupeSource();
+        MagnifierLoupe.Visibility = Visibility.Collapsed;
+        MagnifierInfoPanel.Visibility = Visibility.Collapsed;
         Close();
+        e.Handled = true;
         base.OnMouseRightButtonDown(e);
     }
 
@@ -197,15 +261,30 @@ public partial class ScreenshotWindow : Window
     /// </summary>
     private void EnsureHitTestVisible()
     {
+        SetOverlayTransparent(false);
+    }
+
+    /// <summary>切换覆盖层点击穿透状态，仅在真正变化时才调用 SetWindowLong。</summary>
+    private void SetOverlayTransparent(bool transparent)
+    {
+        if (_overlayTransparent == transparent) return;
+
         IntPtr hwnd = new WindowInteropHelper(this).Handle;
         int ex = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
-        NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, ex & ~NativeMethods.WS_EX_TRANSPARENT);
-        Debug.WriteLine("DEBUG: WS_EX_TRANSPARENT cleared");
+        if (transparent) ex |= NativeMethods.WS_EX_TRANSPARENT;
+        else ex &= ~NativeMethods.WS_EX_TRANSPARENT;
+        NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, ex);
+        _overlayTransparent = transparent;
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
         Point p = e.GetPosition(this);
+
+        // 放大镜与信息面板：在寻边和拖拽阶段均保持可见，直到鼠标松开或取消才隐藏。
+        MagnifierLoupe.Visibility = Visibility.Visible;
+        MagnifierInfoPanel.Visibility = Visibility.Visible;
+        UpdateMagnifierLoupe(p);
 
         // 阈值判定：按下但尚未拖拽时，位移超过阈值则升级为拖拽模式。
         if (!_isDragging && e.LeftButton == MouseButtonState.Pressed)
@@ -222,6 +301,9 @@ public partial class ScreenshotWindow : Window
 
         if (_isDragging)
         {
+            // 拖拽模式：窗口必须接收命中，不能点击穿透。
+            SetOverlayTransparent(false);
+
             // 拖拽模式：从按下点到当前点画选区（min/abs 归一化，支持反向拖拽）。
             ApplySelection(new Rect(
                 Math.Min(_mouseDownPoint.X, p.X),
@@ -232,7 +314,9 @@ public partial class ScreenshotWindow : Window
         }
         else
         {
-            // 寻边模式（无论是否按下，只要未升级为拖拽，就继续寻边）。
+            // 寻边模式：需要点击穿透才能看到覆盖层下面的窗口。
+            SetOverlayTransparent(true);
+
             NativeMethods.GetCursorPos(out POINT pt);
             IntPtr target = WindowUnderCursor(pt);
             if (target == IntPtr.Zero || IsDesktopWindow(target))
@@ -306,12 +390,17 @@ public partial class ScreenshotWindow : Window
         }
         finally
         {
-            // 无论是否抛异常，截图罩必须释放鼠标捕获并关闭。
+            // 无论是否抛异常，截图罩必须释放鼠标捕获、释放鼠标锁、隐藏放大镜并关闭。
             if (_isDragging)
                 ReleaseMouseCapture();
             _isDragging = false;
             _isPotentialDrag = false;
 
+            MagnifierLoupe.Visibility = Visibility.Collapsed;
+            MagnifierInfoPanel.Visibility = Visibility.Collapsed;
+            ClearLoupeSource();
+
+            NativeMethods.ClipCursor(IntPtr.Zero);
             Close();   // 无论哪种模式，松开左键后必须关闭截图窗口
         }
         base.OnMouseLeftButtonUp(e);
@@ -376,6 +465,202 @@ public partial class ScreenshotWindow : Window
         return cls == "Progman" || cls == "WorkerW";
     }
 
+    // -----------------------------------------------------------------------
+    // Circular magnifier loupe
+    // -----------------------------------------------------------------------
+
+    /// <summary>把 MagnifierZoomPreset 转换为 DIP 尺寸，并按当前显示器 DPI 反向补偿，确保物理投影恒为 130×130 物理像素。</summary>
+    private void ApplyLoupeZoomMetrics()
+    {
+        _loupeSourceSize = MagnifierMetrics.GetSourceSize(_snippingSettings.MagnifierZoomPreset);
+        _loupeZoomLevel = _snippingSettings.MagnifierZoomPreset switch
+        {
+            MagnifierZoomPreset.Large => 13.0,
+            MagnifierZoomPreset.Small => 5.0,
+            _ => 10.0 // Medium
+        };
+        _loupePixelSize = _loupeZoomLevel;
+
+        // 放大镜物理尺寸固定 130×130；除以当前 scale 得到应设置的 DIP 值，以抵消 WPF 自动 DPI 拉伸。
+        double loupeWidthDip = LoupeDiameter / _scaleX;
+        double loupeHeightDip = LoupeDiameter / _scaleY;
+        MagnifierLoupe.Width = loupeWidthDip;
+        MagnifierLoupe.Height = loupeHeightDip;
+        MagnifierLoupe.CornerRadius = new CornerRadius(Math.Min(loupeWidthDip, loupeHeightDip) / 2);
+
+        MagnifierImage.Width = loupeWidthDip;
+        MagnifierImage.Height = loupeHeightDip;
+
+        var (blockWidthDip, blockHeightDip, cursorBlockStartDipX, cursorBlockStartDipY) =
+            MagnifierMetrics.ComputeBlockMetrics(LoupeDiameter, _loupeSourceSize, _scaleX, _scaleY);
+
+        PixelGridBrush.Viewport = new Rect(0, 0, blockWidthDip, blockHeightDip);
+        VerticalPixelIndicator.Width = blockWidthDip;
+        VerticalPixelIndicator.Height = loupeHeightDip;
+        HorizontalPixelIndicator.Width = loupeWidthDip;
+        HorizontalPixelIndicator.Height = blockHeightDip;
+        CenterPixelHighlight.Width = blockWidthDip;
+        CenterPixelHighlight.Height = blockHeightDip;
+
+        // 关键修复：十字带与中心高亮框必须跟随“鼠标所在的实际像素块”，
+        // 而不是放大镜几何中心。Medium(source_size=13) 两种基准重合；
+        // Small/Large 为偶数，按几何居中会让十字带跨在两个像素块之间。
+        VerticalPixelIndicator.Margin = new Thickness(cursorBlockStartDipX, 0, 0, 0);
+        HorizontalPixelIndicator.Margin = new Thickness(0, cursorBlockStartDipY, 0, 0);
+        CenterPixelHighlight.Margin = new Thickness(cursorBlockStartDipX, cursorBlockStartDipY, 0, 0);
+
+        // 圆形边框内嵌在内容区之上，其 StrokeThickness 也要按 DPI 反向补偿，保持视觉 2 物理像素。
+        LoupeBorderRing.Width = loupeWidthDip;
+        LoupeBorderRing.Height = loupeHeightDip;
+        LoupeBorderRing.StrokeThickness = 2.0 / Math.Max(_scaleX, _scaleY);
+    }
+
+    /// <summary>实时更新放大镜：以鼠标物理像素为中心裁出动态源区域，NearestNeighbor 放大显示。</summary>
+    private void UpdateMagnifierLoupe(Point mouseDip)
+    {
+        if (_baseImage is null || _baseImage.PixelWidth == 0 || _baseImage.PixelHeight == 0)
+            return;
+
+        // DIP → 物理像素。
+        int physX = (int)(mouseDip.X * _scaleX);
+        int physY = (int)(mouseDip.Y * _scaleY);
+
+        // 以鼠标为中心计算动态物理源矩形，并夹取到图片边界；始终保持正方形，确保与网格对齐。
+        int half = _loupeSourceSize / 2;
+        int srcX = Math.Clamp(physX - half, 0, Math.Max(0, _baseImage.PixelWidth - _loupeSourceSize));
+        int srcY = Math.Clamp(physY - half, 0, Math.Max(0, _baseImage.PixelHeight - _loupeSourceSize));
+        int srcW = _loupeSourceSize;
+        int srcH = _loupeSourceSize;
+
+        // 兜底：图片本身小于源区域时按实际尺寸裁剪（极罕见）。
+        if (_baseImage.PixelWidth < _loupeSourceSize || _baseImage.PixelHeight < _loupeSourceSize)
+        {
+            srcW = Math.Min(_loupeSourceSize, _baseImage.PixelWidth);
+            srcH = Math.Min(_loupeSourceSize, _baseImage.PixelHeight);
+        }
+
+        if (srcW <= 0 || srcH <= 0)
+            return;
+
+        var sourceRect = new Int32Rect(srcX, srcY, srcW, srcH);
+        _currentLoupeCrop?.Freeze();
+        _currentLoupeCrop = new CroppedBitmap(_baseImage, sourceRect);
+        _currentLoupeCrop.Freeze();
+        MagnifierImage.Source = _currentLoupeCrop;
+
+        // 中心像素颜色采样。
+        var color = GetPixelColor(_baseImage, physX, physY);
+        var brush = new SolidColorBrush(color);
+        brush.Freeze();
+
+        MagnifierCoordText.Visibility = _snippingSettings.ShowMagnifierCoordinates ? Visibility.Visible : Visibility.Collapsed;
+        MagnifierCoordText.Text = $"X:{physX} Y:{physY}";
+
+        MagnifierColorRow.Visibility = _snippingSettings.ShowMagnifierColor ? Visibility.Visible : Visibility.Collapsed;
+        MagnifierColorSwatch.Background = brush;
+        MagnifierColorText.Text = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+
+        PositionLoupe(mouseDip);
+
+        // 诊断日志：输出放大镜与像素块的运行时尺寸。
+        double dbgBlockWidthPhys = LoupeDiameter / (double)_loupeSourceSize;
+        double dbgBlockHeightPhys = LoupeDiameter / (double)_loupeSourceSize;
+        double dbgBlockWidthDip = dbgBlockWidthPhys / _scaleX;
+        double dbgBlockHeightDip = dbgBlockHeightPhys / _scaleY;
+        Debug.WriteLine($"DEBUG: Loupe=({MagnifierLoupe.Width:F3}x{MagnifierLoupe.Height:F3}) " +
+            $"Actual=({MagnifierLoupe.ActualWidth:F3}x{MagnifierLoupe.ActualHeight:F3}) " +
+            $"BlockDip=({dbgBlockWidthDip:F3}x{dbgBlockHeightDip:F3}) " +
+            $"VertW={VerticalPixelIndicator.Width:F3}({VerticalPixelIndicator.ActualWidth:F3}) " +
+            $"HorzH={HorizontalPixelIndicator.Height:F3}({HorizontalPixelIndicator.ActualHeight:F3}) " +
+            $"Center=({CenterPixelHighlight.Width:F3}x{CenterPixelHighlight.Height:F3}) " +
+            $"CenterActual=({CenterPixelHighlight.ActualWidth:F3}x{CenterPixelHighlight.ActualHeight:F3})");
+    }
+
+    /// <summary>
+    /// 按配置方向初始化放大镜位置，并在越界时执行四角溢出反转，
+    /// 确保放大镜始终完整可见且不遮挡鼠标。
+    /// </summary>
+    private void PositionLoupe(Point mouseDip)
+    {
+        // 当前窗口客户区即覆盖的屏幕区域（DIP）。
+        double rightEdge = Width;
+        double bottomEdge = Height;
+
+        // 放大镜当前 DIP 尺寸（已按 DPI 反向补偿）。
+        double loupeWidthDip = MagnifierLoupe.ActualWidth > 0 ? MagnifierLoupe.ActualWidth : LoupeDiameter / _scaleX;
+        double loupeHeightDip = MagnifierLoupe.ActualHeight > 0 ? MagnifierLoupe.ActualHeight : LoupeDiameter / _scaleY;
+
+        double offset = 25;
+        double loupeX;
+        double loupeY;
+
+        switch (_snippingSettings.MagnifierPosition)
+        {
+            case MagnifierPosition.BottomLeft:
+                loupeX = mouseDip.X - loupeWidthDip - offset;
+                loupeY = mouseDip.Y + offset;
+                break;
+            case MagnifierPosition.TopRight:
+                loupeX = mouseDip.X + offset;
+                loupeY = mouseDip.Y - loupeHeightDip - offset;
+                break;
+            case MagnifierPosition.TopLeft:
+                loupeX = mouseDip.X - loupeWidthDip - offset;
+                loupeY = mouseDip.Y - loupeHeightDip - offset;
+                break;
+            default: // BottomRight
+                loupeX = mouseDip.X + offset;
+                loupeY = mouseDip.Y + offset;
+                break;
+        }
+
+        // 水平越界 → 翻转到鼠标另一侧。
+        if (loupeX + loupeWidthDip > rightEdge)
+            loupeX = mouseDip.X - loupeWidthDip - offset;
+        else if (loupeX < 0)
+            loupeX = mouseDip.X + offset;
+
+        // 垂直越界 → 翻转到鼠标另一侧。
+        if (loupeY + loupeHeightDip > bottomEdge)
+            loupeY = mouseDip.Y - loupeHeightDip - offset;
+        else if (loupeY < 0)
+            loupeY = mouseDip.Y + offset;
+
+        MagnifierLoupe.Margin = new Thickness(loupeX, loupeY, 0, 0);
+
+        // 信息面板：紧贴放大镜下方，水平居中，并做边界夹取。
+        double infoSpacing = 6;
+        double infoWidth = MagnifierInfoPanel.ActualWidth > 0 ? MagnifierInfoPanel.ActualWidth : loupeWidthDip;
+        double infoHeight = MagnifierInfoPanel.ActualHeight > 0 ? MagnifierInfoPanel.ActualHeight : 24;
+        double infoX = loupeX + (loupeWidthDip - infoWidth) / 2;
+        double infoY = loupeY + loupeHeightDip + infoSpacing;
+
+        if (infoX < 0) infoX = 0;
+        if (infoX + infoWidth > rightEdge) infoX = Math.Max(0, rightEdge - infoWidth);
+        if (infoY + infoHeight > bottomEdge)
+            infoY = loupeY - infoHeight - infoSpacing; // 下方空间不足时翻到放大镜上方
+
+        MagnifierInfoPanel.Margin = new Thickness(infoX, infoY, 0, 0);
+    }
+
+    /// <summary>读取 BitmapSource 指定物理像素的颜色（BGRA → ARGB）。</summary>
+    private static System.Windows.Media.Color GetPixelColor(BitmapSource source, int x, int y)
+    {
+        x = Math.Clamp(x, 0, source.PixelWidth - 1);
+        y = Math.Clamp(y, 0, source.PixelHeight - 1);
+
+        var pixel = new byte[4];
+        source.CopyPixels(new Int32Rect(x, y, 1, 1), pixel, 4, 0);
+        return System.Windows.Media.Color.FromArgb(pixel[3], pixel[2], pixel[1], pixel[0]);
+    }
+
+    /// <summary>释放放大镜当前引用的裁剪位图。</summary>
+    private void ClearLoupeSource()
+    {
+        MagnifierImage.Source = null;
+        _currentLoupeCrop = null;
+    }
+
     /// <summary>
     /// Returns the top-level window under the cursor, temporarily marking
     /// our own overlay as hit-test-transparent (WS_EX_TRANSPARENT) so
@@ -384,18 +669,15 @@ public partial class ScreenshotWindow : Window
     /// </summary>
     private IntPtr WindowUnderCursor(POINT pt)
     {
-        IntPtr hwnd = new WindowInteropHelper(this).Handle;
-        int originalEx = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
+        bool wasTransparent = _overlayTransparent;
+        SetOverlayTransparent(true);
         try
         {
-            NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, originalEx | NativeMethods.WS_EX_TRANSPARENT);
             return NativeMethods.WindowFromPoint(pt);
         }
         finally
         {
-            // 无论 WindowFromPoint / GetWindowLong / SetWindowLong 是否抛出，
-            // 必须恢复原始扩展样式，否则覆盖层将永久保持点击穿透状态。
-            NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, originalEx);
+            SetOverlayTransparent(wasTransparent);
         }
     }
 }

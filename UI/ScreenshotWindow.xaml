@@ -33,5 +33,118 @@
         <!-- Highlight border around the selection (brush/thickness from settings) -->
         <Border x:Name="HighlightBorder"
                 Visibility="Hidden" />
+
+        <!-- Circular magnifier loupe: follows cursor in edge-detection mode -->
+        <Border x:Name="MagnifierLoupe"
+                Width="130" Height="130"
+                HorizontalAlignment="Left" VerticalAlignment="Top"
+                Visibility="Collapsed"
+                CornerRadius="65"
+                BorderThickness="0"
+                Background="#D8000000"
+                IsHitTestVisible="False"
+                SnapsToDevicePixels="True"
+                UseLayoutRounding="True">
+            <Border.Effect>
+                <DropShadowEffect ShadowDepth="0" BlurRadius="12" Opacity="0.5" />
+            </Border.Effect>
+            <Grid SnapsToDevicePixels="True" UseLayoutRounding="True">
+                <Image x:Name="MagnifierImage"
+                       Stretch="UniformToFill"
+                       RenderOptions.BitmapScalingMode="NearestNeighbor"
+                       SnapsToDevicePixels="True"
+                       UseLayoutRounding="True"
+                       Width="130" Height="130" />
+
+                <!-- 像素格子网格线：按 MagnifierZoomLevel 动态平铺 -->
+                <Canvas IsHitTestVisible="False"
+                         SnapsToDevicePixels="True" UseLayoutRounding="True">
+                    <Canvas.Background>
+                        <DrawingBrush x:Name="PixelGridBrush" TileMode="Tile" Viewport="0,0,4.33,4.33" ViewportUnits="Absolute">
+                            <DrawingBrush.Drawing>
+                                <GeometryDrawing Brush="Transparent">
+                                    <GeometryDrawing.Pen>
+                                        <Pen Brush="#28FFFFFF" Thickness="0.5" />
+                                    </GeometryDrawing.Pen>
+                                    <GeometryDrawing.Geometry>
+                                        <RectangleGeometry Rect="0,0,1,1" />
+                                    </GeometryDrawing.Geometry>
+                                </GeometryDrawing>
+                            </DrawingBrush.Drawing>
+                        </DrawingBrush>
+                    </Canvas.Background>
+                </Canvas>
+
+                <!-- 浅蓝色纵向/横向方块重合像素指示 -->
+                <Rectangle x:Name="VerticalPixelIndicator" Width="4.33" Height="130"
+                          HorizontalAlignment="Left" VerticalAlignment="Top"
+                          Fill="#8866CCFF"
+                          SnapsToDevicePixels="True" UseLayoutRounding="True"
+                          IsHitTestVisible="False" />
+                <Rectangle x:Name="HorizontalPixelIndicator" Width="130" Height="4.33"
+                          HorizontalAlignment="Left" VerticalAlignment="Top"
+                          Fill="#8866CCFF"
+                          SnapsToDevicePixels="True" UseLayoutRounding="True"
+                          IsHitTestVisible="False" />
+
+                <!-- 中心像素高亮框：视觉锁死当前选中像素 -->
+                <Border x:Name="CenterPixelHighlight"
+                         Width="5" Height="5"
+                         HorizontalAlignment="Left" VerticalAlignment="Top"
+                         BorderBrush="#AAFFFFFF" BorderThickness="1"
+                         Background="Transparent"
+                         SnapsToDevicePixels="True" UseLayoutRounding="True"
+                         IsHitTestVisible="False" />
+
+                <!-- 圆形边框：内嵌在内容区之上，不占用 130×130 像素区域 -->
+                <Ellipse x:Name="LoupeBorderRing"
+                         Width="130" Height="130"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                         Stroke="#CCFFFFFF" StrokeThickness="2"
+                         Fill="Transparent"
+                         SnapsToDevicePixels="True" UseLayoutRounding="False"
+                         IsHitTestVisible="False" />
+            </Grid>
+        </Border>
+
+        <!-- 放大镜信息面板：位于放大镜圆形视图下方，显示坐标与颜色 -->
+        <Border x:Name="MagnifierInfoPanel"
+                HorizontalAlignment="Left" VerticalAlignment="Top"
+                Visibility="Collapsed"
+                Background="#D8000000"
+                BorderBrush="#CCFFFFFF" BorderThickness="1"
+                CornerRadius="4"
+                Padding="8,5"
+                IsHitTestVisible="False"
+                SnapsToDevicePixels="True"
+                UseLayoutRounding="True">
+            <Border.Effect>
+                <DropShadowEffect ShadowDepth="0" BlurRadius="8" Opacity="0.4" />
+            </Border.Effect>
+            <StackPanel Orientation="Vertical">
+                <TextBlock x:Name="MagnifierCoordText"
+                          Foreground="White"
+                          FontSize="12"
+                          FontFamily="Consolas"
+                          Text="X:0 Y:0" />
+
+                <StackPanel x:Name="MagnifierColorRow" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,2,0,0">
+                    <Border x:Name="MagnifierColorSwatch"
+                             Width="12" Height="12"
+                             CornerRadius="2"
+                             BorderBrush="#88FFFFFF" BorderThickness="1"
+                             Background="Black"
+                             VerticalAlignment="Center" />
+                    <TextBlock x:Name="MagnifierColorText"
+                              Foreground="White"
+                              FontSize="12"
+                              FontFamily="Consolas"
+                              Text="#000000"
+                              VerticalAlignment="Center"
+                              Margin="6,0,0,0" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
     </Grid>
+
 </Window>
