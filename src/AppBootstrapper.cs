@@ -62,9 +62,19 @@ internal sealed class AppBootstrapper
 
     private void BuildRuntime(Settings settings)
     {
-        // 1. 运行时基础设施：截图服务按最新 SnippingSettings 重建。
+        // 1. 运行时基础设施：截图服务与截图工作流按最新设置重建。
         var screenshotCaptureService = new ScreenshotCaptureService(settings.Preferences.Snipping);
-        _commandContext = new CommandContext(_processLauncher, screenshotCaptureService);
+        var screenshotOverlay = new ScreenshotOverlayAdapter(settings.Preferences.Snipping);
+        var screenshotPinService = new ScreenshotPinServiceAdapter(settings.Preferences.Pin);
+        var toastService = new ToastService();
+        var screenshotWorkflow = new ScreenshotWorkflow(
+            screenshotCaptureService,
+            screenshotOverlay,
+            screenshotPinService,
+            toastService,
+            settings.Preferences.Snipping,
+            settings.Preferences.Pin);
+        _commandContext = new CommandContext(_processLauncher, screenshotCaptureService, screenshotWorkflow, toastService);
 
         // 2. 构建命令注册中心：先内建、后用户，保证内建命令不被用户配置覆盖。
         var registry = new CommandRegistry();

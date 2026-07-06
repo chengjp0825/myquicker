@@ -5,7 +5,6 @@ using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Media.Imaging;
 using MyQuicker.Domain.DTO;
 using MyQuicker.Domain.Runtime;
 using MyQuicker.Interop;
@@ -260,47 +259,13 @@ public partial class MainWindow : Window, IMenuPresenter
     }
 
     /// <summary>
-    /// 解释 ActionExecutor 返回的纯数据结果，承接所有物理 UI 副作用：
-    /// Toast、ScreenshotWindow 弹窗、资源释放。
+    /// 解释 ActionExecutor 返回的纯数据结果，仅处理轻量 UI 副作用（Toast）。
+    /// 截图工作流已由 <see cref="SnippingCommand"/> 内部触发，不再在此解释。
     /// </summary>
     private void HandleActionResult(ActionResult result)
     {
         if (result.ToastMessage is not null)
             Toast.Show(result.ToastMessage, 3000);
-
-        if (result.Kind == ActionOutcomeKind.ScreenshotRequested && result.CapturedImage is { } captured)
-        {
-            BitmapSource source;
-            try
-            {
-                source = ConvertToBitmapSource(captured.Bitmap);
-            }
-            finally
-            {
-                captured.Dispose();
-            }
-            new ScreenshotWindow(source, captured.Bounds, _preferences.Snipping, _preferences.Pin).ShowDialog();
-        }
-    }
-
-    /// <summary>
-    /// 把 GDI+ Bitmap 转换为冻结的 WPF BitmapSource；转换后立即释放临时 HBITMAP。
-    /// 截图子域的 CapturedImage 由调用方在转换后 Dispose。
-    /// </summary>
-    private static BitmapSource ConvertToBitmapSource(System.Drawing.Bitmap bitmap)
-    {
-        IntPtr hBitmap = bitmap.GetHbitmap();
-        try
-        {
-            var source = Imaging.CreateBitmapSourceFromHBitmap(
-                hBitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
-            source.Freeze();
-            return source;
-        }
-        finally
-        {
-            NativeMethods.DeleteObject(hBitmap);
-        }
     }
 
     /// <summary>

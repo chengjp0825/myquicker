@@ -91,16 +91,6 @@ public partial class ScreenshotWindow : Window
         SourceInitialized += OnSourceInitialized;
     }
 
-    /// <summary>
-    /// 兼容旧四参数构造的过渡重载；剪贴板/钉贴图逻辑已移出本窗口，
-    /// <paramref name="pinSettings"/> 仅用于匹配签名，不参与任何行为。
-    /// </summary>
-    [System.Obsolete("Use the three-parameter constructor; pin/clipboard handling moved to ScreenshotWorkflow.")]
-    public ScreenshotWindow(BitmapSource source, Rectangle bounds, SnippingSettings snippingSettings, PinSettings pinSettings)
-        : this(source, bounds, snippingSettings)
-    {
-    }
-
     /// <summary>HWND 创建后：物理坐标强制定位 + 用实际渲染 DPI 重算尺寸，并订阅 DPI 变化。</summary>
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
