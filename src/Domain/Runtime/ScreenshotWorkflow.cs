@@ -16,7 +16,7 @@ namespace MyQuicker.Domain.Runtime;
 /// 截图工作流编排器：Capture → Select Region → Pin。
 /// 把原先散落在 <see cref="UI.MainWindow"/> 与 <see cref="UI.ScreenshotWindow"/> 中的流程收敛到可测试的单一入口。
 /// </summary>
-public sealed class ScreenshotWorkflow
+public class ScreenshotWorkflow
 {
     private readonly IScreenshotCaptureService _captureService;
     private readonly IScreenshotOverlay _overlay;
@@ -50,7 +50,7 @@ public sealed class ScreenshotWorkflow
     /// 执行完整截图工作流。
     /// </summary>
     /// <param name="cancellationToken">取消令牌；在步骤边界处检查。</param>
-    public async Task RunAsync(CancellationToken cancellationToken = default)
+    public virtual async Task RunAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
