@@ -70,7 +70,7 @@ internal sealed class AppBootstrapper
         // 3. 构建动作执行调度中心。
         _actionExecutor = new ActionExecutor(registry, settings.Commands);
 
-        // 4. 主窗口：首次创建，后续重新绑定依赖；MenuGroups 由构造注入，不再依赖 ActionStore 静态缓存。
+        // 4. 主窗口：首次创建，后续重新绑定依赖；MenuGroups 由构造注入。
         if (_mainWindow is null)
         {
             _mainWindow = new MainWindow(_actionExecutor, _commandContext, settings.Preferences, settings.MenuGroups);
