@@ -110,7 +110,7 @@ internal sealed class AppBootstrapper
             .ToList();
         _triggerEvaluator.UpdateTriggers(triggers);
 
-        // 7. 原始输入源：首次创建，后续只更新拦截策略；TriggerEvaluator 在构造时注入。
+        // 7. 原始输入源：首次创建，后续只更新拦截策略与触发器；钩子句柄保持复用。
         bool interceptWakeupKey = settings.TriggerBindings.All(b => b.InterceptWakeupKey);
         var interceptionPolicy = new InputInterceptionPolicy(interceptWakeupKey);
 
@@ -120,10 +120,7 @@ internal sealed class AppBootstrapper
         }
         else
         {
-            // RawInputSource 本身不持有策略实例；拦截行为通过替换事件处理器侧的引用实现。
-            // 为支持动态策略，重建输入源（钩子句柄复用，成本极低）。
-            _rawInputSource.Dispose();
-            _rawInputSource = new RawInputSource(_syncContext, _timeProvider, _triggerEvaluator, interceptionPolicy);
+            _rawInputSource.UpdateInterceptionPolicy(interceptionPolicy);
         }
     }
 }

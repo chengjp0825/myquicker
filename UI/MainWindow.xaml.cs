@@ -217,8 +217,8 @@ public partial class MainWindow : Window, IMenuPresenter
     }
 
     /// <summary>
-    /// Hook event handler: if any mouse button is pressed outside the
-    /// window bounds while we are awake, request dismissal. The orchestrator
+    /// Handler for <see cref="RawInputSource.AnyMouseDown"/>: if any mouse button is pressed
+    /// outside the window bounds while we are awake, request dismissal. The orchestrator
     /// will then command the physical hide. The click itself is not blocked,
     /// so it also reaches the underlying application.
     /// </summary>

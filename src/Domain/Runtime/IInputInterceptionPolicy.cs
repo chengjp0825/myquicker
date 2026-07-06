@@ -6,5 +6,10 @@ namespace MyQuicker.Domain.Runtime;
 /// </summary>
 public interface IInputInterceptionPolicy
 {
+    /// <summary>
+    /// Determines whether the supplied wake context represents an input that should be intercepted.
+    /// </summary>
+    /// <param name="context">The wake context produced by a matched trigger.</param>
+    /// <returns>True if the input should be swallowed; otherwise false.</returns>
     bool ShouldIntercept(WakeContext context);
 }

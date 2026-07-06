@@ -11,9 +11,9 @@ namespace MyQuicker.Domain.Runtime;
 /// <summary>
 /// Thin adapter around the WH_MOUSE_LL global hook. Translates Win32 messages into
 /// domain <see cref="TriggerEvent"/> instances and posts them to a synchronization context.
-/// Keeps no trigger-matching or interception policy itself; evaluation is delegated to
-/// the supplied <see cref="TriggerEvaluator"/>, and interception to an optional
-/// <see cref="IInputInterceptionPolicy"/>.
+/// Evaluation is delegated to the supplied <see cref="TriggerEvaluator"/> so that matches can
+/// be applied synchronously in the native callback, and interception to an optional
+/// <see cref="IInputInterceptionPolicy"/> that can be updated without reinstalling the hook.
 /// </summary>
 public sealed class RawInputSource : IDisposable
 {
@@ -22,7 +22,7 @@ public sealed class RawInputSource : IDisposable
     private readonly ISynchronizationContext _sync;
     private readonly ITimeProvider _timeProvider;
     private readonly TriggerEvaluator _triggerEvaluator;
-    private readonly IInputInterceptionPolicy? _interceptionPolicy;
+    private IInputInterceptionPolicy? _interceptionPolicy;
 
     /// <summary>
     /// Raised on the supplied synchronization context for every low-level mouse event
@@ -43,6 +43,14 @@ public sealed class RawInputSource : IDisposable
     /// </summary>
     public event EventHandler<WakeContext>? WakeContextReceived;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RawInputSource"/> class.
+    /// </summary>
+    /// <param name="sync">Synchronization context used to marshal events to the UI thread.</param>
+    /// <param name="timeProvider">Provider for monotonic timestamps used in trigger events.</param>
+    /// <param name="triggerEvaluator">Evaluator that matches trigger events against configured triggers.</param>
+    /// <param name="interceptionPolicy">Optional policy that decides whether a matched input is swallowed.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="sync"/>, <paramref name="timeProvider"/>, or <paramref name="triggerEvaluator"/> is null.</exception>
     public RawInputSource(
         ISynchronizationContext sync,
         ITimeProvider timeProvider,
@@ -53,6 +61,16 @@ public sealed class RawInputSource : IDisposable
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
         _triggerEvaluator = triggerEvaluator ?? throw new ArgumentNullException(nameof(triggerEvaluator));
         _interceptionPolicy = interceptionPolicy;
+    }
+
+    /// <summary>
+    /// Replaces the current interception policy without reinstalling the hook.
+    /// Safe to call while the hook is running.
+    /// </summary>
+    /// <param name="policy">The new interception policy, or null to disable interception.</param>
+    public void UpdateInterceptionPolicy(IInputInterceptionPolicy? policy)
+    {
+        _interceptionPolicy = policy;
     }
 
     /// <summary>
@@ -102,7 +120,7 @@ public sealed class RawInputSource : IDisposable
                 PostEvent(new TriggerEvent(
                     TriggerEventType.MouseMove,
                     new Point(info.pt.X, info.pt.Y),
-                    Stopwatch.GetTimestamp()));
+                    _timeProvider.MonotonicTimestamp));
                 return NativeMethods.CallNextHookEx(_hookId, nCode, wParam, lParam);
             }
 
@@ -124,7 +142,7 @@ public sealed class RawInputSource : IDisposable
                 var ev = new TriggerEvent(
                     TriggerEventType.MouseDown,
                     new Point(pt.X, pt.Y),
-                    Stopwatch.GetTimestamp(),
+                    _timeProvider.MonotonicTimestamp,
                     msg,
                     xButton);
 
@@ -159,5 +177,8 @@ public sealed class RawInputSource : IDisposable
         _sync.Post(() => EventReceived?.Invoke(this, ev));
     }
 
+    /// <summary>
+    /// Unregisters the low-level mouse hook.
+    /// </summary>
     public void Dispose() => Stop();
 }
