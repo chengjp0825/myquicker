@@ -107,6 +107,7 @@ public sealed class SettingsBuilder
         menu.Width = Math.Clamp(menu.Width, 100, 2000);
         menu.Height = Math.Clamp(menu.Height, 100, 2000);
         menu.CornerRadius = Math.Clamp(menu.CornerRadius, 0, 100);
+        menu.GridColumns = Math.Clamp(menu.GridColumns, 2, 3);
     }
 
     private static void NormalizeSnippingSettings(SnippingSettings snipping)
