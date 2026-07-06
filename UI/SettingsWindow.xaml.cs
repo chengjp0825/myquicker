@@ -45,7 +45,13 @@ public partial class SettingsWindow : Window
         CircleSensitivityCombo.SelectedIndex = (int)_viewModel.TriggerBinding.CircleSensitivity;
 
         // 动作网格绑定到默认分组的 Action 列表；当前 UI 仅支持单分组编辑。
-        var defaultGroup = _viewModel.MenuGroups.FirstOrDefault() ?? new MenuGroup { Id = "default", DisplayName = "默认", Icon = "EFA8" };
+        // 首次运行/无分组时把默认分组写回 ViewModel，避免保存时创建另一个分组导致编辑丢失。
+        var defaultGroup = _viewModel.MenuGroups.FirstOrDefault();
+        if (defaultGroup is null)
+        {
+            defaultGroup = new MenuGroup { Id = "default", DisplayName = "默认", Icon = "EFA8" };
+            _viewModel.MenuGroups.Add(defaultGroup);
+        }
         ActionsGrid.ItemsSource = defaultGroup.Actions;
 
         // Snipping

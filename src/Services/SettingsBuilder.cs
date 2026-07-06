@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using MyQuicker.Domain.DTO;
 using MyQuicker.Interop;
 
@@ -41,9 +42,13 @@ public sealed class SettingsBuilder
         if (pin is null)
             throw new ArgumentNullException(nameof(pin));
 
-        NormalizeMenuSettings(menu);
-        NormalizeSnippingSettings(snipping);
-        NormalizePinSettings(pin);
+        var snippingCopy = Clone(snipping);
+        var menuCopy = Clone(menu);
+        var pinCopy = Clone(pin);
+
+        NormalizeMenuSettings(menuCopy);
+        NormalizeSnippingSettings(snippingCopy);
+        NormalizePinSettings(pinCopy);
 
         return new Settings
         {
@@ -52,9 +57,9 @@ public sealed class SettingsBuilder
             Commands = commands,
             Preferences = new Preferences
             {
-                Snipping = snipping,
-                Menu = menu,
-                Pin = pin,
+                Snipping = snippingCopy,
+                Menu = menuCopy,
+                Pin = pinCopy,
             },
         };
     }
@@ -113,5 +118,11 @@ public sealed class SettingsBuilder
     private static void NormalizePinSettings(PinSettings pin)
     {
         pin.DefaultOpacity = Math.Clamp(pin.DefaultOpacity, 0.1, 1.0);
+    }
+
+    private static T Clone<T>(T source) where T : new()
+    {
+        string json = JsonSerializer.Serialize(source);
+        return JsonSerializer.Deserialize<T>(json) ?? new T();
     }
 }
