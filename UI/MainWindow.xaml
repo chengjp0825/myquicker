@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:models="clr-namespace:MyQuicker.Models"
+        xmlns:dto="clr-namespace:MyQuicker.Domain.DTO"
         mc:Ignorable="d"
         WindowStyle="None"
         AllowsTransparency="True"
@@ -46,7 +46,7 @@
                         </ItemsControl.ItemsPanel>
 
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="{x:Type models:ActionItem}">
+                            <DataTemplate DataType="{x:Type dto:ActionItem}">
                                 <!-- 固定大小的方块按钮 (例如 76x76) -->
                                 <Button Click="ActionButton_Click"
                                         Style="{StaticResource MenuButtonStyle}"
