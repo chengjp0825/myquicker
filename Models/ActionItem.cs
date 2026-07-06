@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace MyQuicker.Models;
+namespace MyQuicker.Domain.DTO;
 
 /// <summary>
 /// A single user-configurable action. Implements INotifyPropertyChanged so
@@ -11,7 +11,7 @@ namespace MyQuicker.Models;
 public class ActionItem : INotifyPropertyChanged
 {
     private string _name = string.Empty;
-    private string _command = string.Empty;
+    private string _commandId = string.Empty;
     private string _arguments = string.Empty;
     private string _icon = "EFA8"; // Segoe MDL2 Assets 图标码（hex），空/无效回退占位字
 
@@ -21,11 +21,18 @@ public class ActionItem : INotifyPropertyChanged
         set => SetField(ref _name, value);
     }
 
-    public string Command
+    public string CommandId
     {
-        get => _command;
-        set => SetField(ref _command, value);
+        get => _commandId;
+        set => SetField(ref _commandId, value);
     }
+
+    /// <summary>
+    /// 向后兼容：旧配置直接存命令字符串（路径/URL）在此。
+    /// 读取旧 settings.json 时 SettingsManager 会把它迁移到 Settings.Commands 并将 CommandId 指向新条目。
+    /// </summary>
+    [System.Obsolete("Use CommandId to reference Settings.Commands.")]
+    public string? Command { get; set; }
 
     public string Arguments
     {

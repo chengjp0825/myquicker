@@ -175,6 +175,7 @@ internal sealed class SettingsManager
         settings.Preferences.Menu ??= new MenuSettings();
         settings.Preferences.Pin ??= new PinSettings();
         settings.MenuGroups ??= new List<MenuGroup>();
+        settings.Commands ??= new List<CommandDefinition>();
 
         foreach (var group in settings.MenuGroups)
         {
@@ -274,7 +275,9 @@ internal sealed class SettingsManager
         settings.Preferences.Menu = DeserializeOrDefault<MenuSettings>(root, "Menu");
         settings.Preferences.Pin = DeserializeOrDefault<PinSettings>(root, "Pin");
 
-        return Normalize(settings);
+        Normalize(settings);
+        MigrateActionCommandsIntoCatalog(settings);
+        return settings;
     }
 
     /// <summary>从 JsonElement 读取指定属性并反序列化为 T；失败返回默认值。</summary>
@@ -357,10 +360,63 @@ internal sealed class SettingsManager
                 if (settings.MenuGroups.Count == 0 && defaultGroup.Actions.Count > 0)
                     settings.MenuGroups.Add(defaultGroup);
             }
+
+            MigrateActionCommandsIntoCatalog(settings);
         }
         catch
         {
             // 旧文件损坏：保留默认配置，不抛。
+        }
+    }
+
+    /// <summary>
+    /// 将旧版 <see cref="ActionItem.Command"/> 字符串迁移到 <see cref="Settings.Commands"/> 目录，
+    /// 并用 <see cref="ActionItem.CommandId"/> 指向新条目。
+    /// </summary>
+    private static void MigrateActionCommandsIntoCatalog(Settings settings)
+    {
+        var catalog = settings.Commands;
+        foreach (var group in settings.MenuGroups)
+        {
+            foreach (var action in group.Actions)
+            {
+                if (!string.IsNullOrWhiteSpace(action.CommandId))
+                    continue;
+
+                string? raw = action.Command;
+                if (string.IsNullOrWhiteSpace(raw))
+                    continue;
+
+                // sys: commands are built-in; do not create user catalog entries for them.
+                if (raw.StartsWith("sys:", StringComparison.Ordinal))
+                {
+                    action.CommandId = raw;
+                    continue;
+                }
+
+                var existing = catalog.FirstOrDefault(c =>
+                    string.Equals(c.Target, raw, StringComparison.Ordinal));
+
+                if (existing is null)
+                {
+                    var type = Uri.TryCreate(raw, UriKind.Absolute, out var uri)
+                        && (string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                        ? CommandType.OpenUrl
+                        : CommandType.LaunchApplication;
+
+                    existing = new CommandDefinition
+                    {
+                        Id = $"cmd:{Guid.NewGuid():N}",
+                        DisplayName = action.Name,
+                        Type = type,
+                        Target = raw,
+                    };
+                    catalog.Add(existing);
+                }
+
+                action.CommandId = existing.Id;
+            }
         }
     }
 }
