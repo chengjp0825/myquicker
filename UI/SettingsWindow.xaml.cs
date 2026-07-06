@@ -1,36 +1,48 @@
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
+using System.Linq;
+using System.Text.Json;
 using System.Windows;
+using MyQuicker.Domain.DTO;
+using MyQuicker.Domain.Runtime;
 using MyQuicker.Interop;
-using MyQuicker.Models;
 using MyQuicker.Services;
 
 namespace MyQuicker.UI;
 
 /// <summary>
 /// 设置中心：常规(唤醒键) / 动作管理 / 截屏与贴图 / 菜单 四页。
-/// 应用时把全部四组写回 SettingsManager 落盘，并即时把 Menu 组刷到 MainWindow。
+/// 保存时构建全新的 <see cref="Settings"/> DTO 并通过 <see cref="SettingsManager"/> 落盘，
+/// 随后触发 <see cref="SettingsSaved"/> 事件通知组合根执行全量重建。
+/// SettingsWindow 本身禁止就地修补运行时对象或调用主窗口方法。
 /// </summary>
 public partial class SettingsWindow : Window
 {
-    private readonly GlobalHookService _hookService;
-    private readonly MainWindow? _mainWindow;
-    private readonly ActionSettings _action;
+    private readonly SettingsManager _settingsManager;
+    private readonly TriggerBinding _triggerBinding;
     private readonly SnippingSettings _snipping;
     private readonly MenuSettings _menu;
     private readonly PinSettings _pin;
+    private readonly List<MenuGroup> _menuGroups;
 
-    internal SettingsWindow(GlobalHookService hookService, MainWindow? mainWindow)
+    /// <summary>设置保存并落盘后触发；订阅方（组合根）负责重建运行时对象。</summary>
+    internal event EventHandler? SettingsSaved;
+
+    internal SettingsWindow(SettingsManager settingsManager)
     {
         InitializeComponent();
-        _hookService = hookService;
-        _mainWindow = mainWindow;
+        _settingsManager = settingsManager ?? throw new System.ArgumentNullException(nameof(settingsManager));
 
         // ActionStore.LoadForEdit() 返回内存缓存的深拷贝（隔离未保存编辑，无 IO）。
-        _action = ActionStore.LoadForEdit();
-        var s = SettingsManager.Instance.Settings;
-        _snipping = s.Snipping;
-        _menu = s.Menu;
-        _pin = s.Pin;
+        _menuGroups = ActionStore.LoadForEdit();
+
+        var s = settingsManager.Settings;
+        // 对设置子对象做深拷贝：编辑期间仅修改副本，点“取消/X”不会污染内存中的 live DTO。
+        _triggerBinding = s.TriggerBindings.FirstOrDefault() is { } tb ? Clone(tb) : new TriggerBinding();
+        _snipping = Clone(s.Preferences.Snipping);
+        _menu = Clone(s.Preferences.Menu);
+        _pin = Clone(s.Preferences.Pin);
 
         PopulateControls();
         WireColorPreviews();
@@ -38,10 +50,13 @@ public partial class SettingsWindow : Window
 
     private void PopulateControls()
     {
-        WakeupKeyCombo.SelectedIndex = ToIndex(_action);
-        InterceptWakeupCheckBox.IsChecked = _action.InterceptWakeupKey;
-        CircleSensitivityCombo.SelectedIndex = (int)_action.CircleSensitivity;
-        ActionsGrid.ItemsSource = _action.Actions;
+        WakeupKeyCombo.SelectedIndex = ToIndex(_triggerBinding);
+        InterceptWakeupCheckBox.IsChecked = _triggerBinding.InterceptWakeupKey;
+        CircleSensitivityCombo.SelectedIndex = (int)_triggerBinding.CircleSensitivity;
+
+        // 动作网格绑定到默认分组的 Action 列表；当前 UI 仅支持单分组编辑。
+        var defaultGroup = _menuGroups.FirstOrDefault() ?? new MenuGroup { Id = "default", DisplayName = "默认", Icon = "EFA8" };
+        ActionsGrid.ItemsSource = defaultGroup.Actions;
 
         // Snipping
         SnippingDragThresholdBox.Text = _snipping.DragThreshold.ToString(CultureInfo.InvariantCulture);
@@ -114,16 +129,25 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private static int ToIndex(ActionSettings s)
+    private static int ToIndex(TriggerBinding binding)
     {
-        if (s.WakeupMessage == ActionSettings.WAKEUP_CIRCLE_GESTURE)
+        if (binding.Type == TriggerType.CircleGesture)
             return 2; // 画圈
-        if (s.WakeupMessage == NativeMethods.WM_XBUTTONDOWN)
+        if (binding.WakeupMessage == NativeMethods.WM_XBUTTONDOWN)
             return 1; // 侧键后退 (XButton1)
         return 0; // 中键
     }
 
     private void SaveButton_Click(object sender, RoutedEventArgs e)
+    {
+        _ = SaveAndCloseAsync();
+    }
+
+    /// <summary>
+    /// 异步保存设置：验证与 DTO 构造在 UI 线程完成，文件 I/O 离屏执行，
+    /// 保存成功后通知组合根重建并关闭窗口。
+    /// </summary>
+    private async Task SaveAndCloseAsync()
     {
         // Commit any in-flight cell edit before persisting.
         ActionsGrid.CommitEdit(System.Windows.Controls.DataGridEditingUnit.Cell, true);
@@ -134,17 +158,18 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        // Action
+        // Trigger binding
         int index = WakeupKeyCombo.SelectedIndex;
-        _action.WakeupMessage = index switch
+        _triggerBinding.Type = index == 2 ? TriggerType.CircleGesture : TriggerType.Button;
+        _triggerBinding.WakeupMessage = index switch
         {
             1 => NativeMethods.WM_XBUTTONDOWN,
-            2 => ActionSettings.WAKEUP_CIRCLE_GESTURE,
+            2 => null,
             _ => NativeMethods.WM_MBUTTONDOWN,
         };
-        _action.XButtonData = index == 1 ? 1 : 0;
-        _action.InterceptWakeupKey = InterceptWakeupCheckBox.IsChecked == true;
-        _action.CircleSensitivity = (CircleSensitivity)CircleSensitivityCombo.SelectedIndex;
+        _triggerBinding.XButtonData = index == 1 ? 1 : null;
+        _triggerBinding.InterceptWakeupKey = InterceptWakeupCheckBox.IsChecked == true;
+        _triggerBinding.CircleSensitivity = (CircleSensitivity)CircleSensitivityCombo.SelectedIndex;
 
         // Snipping
         _snipping.DragThreshold = double.Parse(SnippingDragThresholdBox.Text, CultureInfo.InvariantCulture);
@@ -169,19 +194,53 @@ public partial class SettingsWindow : Window
         _pin.DefaultTopmost = PinDefaultTopmostBox.IsChecked == true;
         _pin.DefaultShowShadow = PinDefaultShowShadowBox.IsChecked == true;
 
-        // Persist: reattach all four groups then save.
-        var s = SettingsManager.Instance.Settings;
-        s.Action = _action;
-        s.Snipping = _snipping;
-        s.Menu = _menu;
-        s.Pin = _pin;
-        SettingsManager.Instance.Save();
-        ActionStore.UpdateCache(_action); // 同步动作内存缓存（唤醒零 IO，docs/03 §7.4）
+        // 确保默认分组存在。
+        var defaultGroup = _menuGroups.FirstOrDefault();
+        if (defaultGroup is null)
+        {
+            defaultGroup = new MenuGroup { Id = "default", DisplayName = "默认", Icon = "EFA8" };
+            _menuGroups.Add(defaultGroup);
+        }
 
-        _hookService.UpdateSettings(_action);
-        _mainWindow?.ApplyMenuSettings(_menu);
-        _mainWindow?.RefreshActions(); // 菜单动作列表即时刷新
-        Close();
+        // 构建全新的 Settings DTO，禁止就地修补原有 live DTO。
+        var newSettings = new Settings
+        {
+            TriggerBindings = new List<TriggerBinding> { _triggerBinding },
+            Preferences = new Preferences
+            {
+                Snipping = _snipping,
+                Menu = _menu,
+                Pin = _pin,
+            },
+            MenuGroups = _menuGroups,
+        };
+
+        try
+        {
+            await _settingsManager.SaveAsync(newSettings).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"ERROR: 保存设置失败: {ex.Message}");
+            await Dispatcher.InvokeAsync(() =>
+                System.Windows.MessageBox.Show($"保存设置失败：{ex.Message}", "设置",
+                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error));
+            return;
+        }
+
+        // 通知组合根执行全量重建：触发器、命令注册表、动作缓存、菜单外观等。
+        await Dispatcher.InvokeAsync(() =>
+        {
+            SettingsSaved?.Invoke(this, EventArgs.Empty);
+            Close();
+        });
+    }
+
+    /// <summary>深拷贝 DTO 子对象；编辑期与 live DTO 隔离。</summary>
+    private static T Clone<T>(T source) where T : class, new()
+    {
+        string json = JsonSerializer.Serialize(source, SettingsManager.JsonOptions);
+        return JsonSerializer.Deserialize<T>(json, SettingsManager.JsonOptions) ?? new T();
     }
 
     /// <summary>校验全部数值与颜色字段；返回 false 时 error 给出提示。</summary>
@@ -213,5 +272,12 @@ public partial class SettingsWindow : Window
     {
         try { BrushHelper.ToBrush(box.Text); return true; }
         catch { return false; }
+    }
+
+    /// <summary>窗口关闭时取消 SettingsSaved 订阅，避免委托持有窗口引用。</summary>
+    protected override void OnClosed(EventArgs e)
+    {
+        SettingsSaved = null;
+        base.OnClosed(e);
     }
 }

@@ -9,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
+using MyQuicker.Domain.DTO;
 using MyQuicker.Interop;
 using MyQuicker.Services;
 using Clipboard = System.Windows.Clipboard;
@@ -82,8 +83,12 @@ public partial class PinWindow : Window
     /// <param name="screenY">贴图左上角目标屏幕纵坐标（物理像素，来自截图结算）。</param>
     /// <param name="scaleX">DIP↔物理像素 X 系数（截图所在显示器 DPI，保证贴图 1:1）。</param>
     /// <param name="scaleY">DIP↔物理像素 Y 系数。</param>
-    public PinWindow(BitmapSource source, double screenX, double screenY, double scaleX, double scaleY)
+    /// <param name="pinSettings">贴图视觉参数配置。</param>
+    public PinWindow(BitmapSource source, double screenX, double screenY, double scaleX, double scaleY, PinSettings pinSettings)
     {
+        if (pinSettings is null)
+            throw new ArgumentNullException(nameof(pinSettings));
+
         InitializeComponent();
 
         _screenX = screenX;
@@ -93,19 +98,18 @@ public partial class PinWindow : Window
 
         // 关键视觉参数从统一配置注入（Per SPEC 重构 Step 3）。
         // 最小宽高（40×40）、阴影模糊半径（14）、旋转步进（90°）已硬编码，不再可配。
-        var pin = SettingsManager.Instance.Settings.Pin;
         MinWidth = 40;
         MinHeight = 40;
-        PinBorder.BorderBrush = BrushHelper.ToBrush(pin.BorderColor);
+        PinBorder.BorderBrush = BrushHelper.ToBrush(pinSettings.BorderColor);
         ShadowEffect.BlurRadius = 14;
-        Opacity = pin.DefaultOpacity;
-        SyncOpacityMenu(pin.DefaultOpacity); // 不透明度菜单勾选与 DefaultOpacity 同步
+        Opacity = pinSettings.DefaultOpacity;
+        SyncOpacityMenu(pinSettings.DefaultOpacity); // 不透明度菜单勾选与 DefaultOpacity 同步
 
         // 默认置顶 / 默认阴影（Per SPEC 8C）：覆盖 XAML 的 True 默认与菜单勾选状态。
-        Topmost = pin.DefaultTopmost;
-        TopmostMenuItem.IsChecked = pin.DefaultTopmost;
-        ShadowMenuItem.IsChecked = pin.DefaultShowShadow;
-        PinImage.Effect = pin.DefaultShowShadow ? ShadowEffect : null;
+        Topmost = pinSettings.DefaultTopmost;
+        TopmostMenuItem.IsChecked = pinSettings.DefaultTopmost;
+        ShadowMenuItem.IsChecked = pinSettings.DefaultShowShadow;
+        PinImage.Effect = pinSettings.DefaultShowShadow ? ShadowEffect : null;
 
         _source = source;
         _naturalWidth = source.PixelWidth;
@@ -113,14 +117,13 @@ public partial class PinWindow : Window
 
         PinImage.Source = source;
 
-        // 用传入 scale 初算 PinImage 尺寸/定位；SourceInitialized 再用窗口实际渲染 DPI 修正
-        // （AllowsTransparency 等场景下渲染 DPI 可能与传入值不同，须用实际值才能 1:1，docs/02 §5）。
+        // 用传入 scale 初算 PinImage 尺寸/定位；SourceInitialized 再用窗口实际渲染 DPI 修正。
         ReapplyMetrics();
 
         // 默认外观（docs/03 §6）：默认显示边界 + 默认批注模式，均可配置。
-        _annotationModeEnabled = pin.DefaultAnnotationMode;
+        _annotationModeEnabled = pinSettings.DefaultAnnotationMode;
         AnnotationModeItem.IsChecked = _annotationModeEnabled;
-        if (pin.DefaultShowBorder)
+        if (pinSettings.DefaultShowBorder)
         {
             BorderMenuItem.IsChecked = true;
             ApplyBorder(2);
@@ -130,7 +133,7 @@ public partial class PinWindow : Window
         SourceInitialized += OnSourceInitialized;
     }
 
-    /// <summary>HWND 创建后：物理坐标强制定位 + 用实际渲染 DPI 重算尺寸，订阅 DPI 变化。</summary>
+    /// <summary>HWND 创建后：物理坐标强制定位 + 用确定性窗口 DPI 重算尺寸，订阅 DPI 变化。</summary>
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
         // SetWindowPos 以物理坐标（贴图内容左上角）强制 HWND 落在目标显示器，触发该屏 DPI 赋值。
@@ -138,32 +141,51 @@ public partial class PinWindow : Window
         NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, (int)_screenX, (int)_screenY, 0, 0,
             NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_NOSIZE);
 
-        ReapplyMetrics();
+        ReapplyMetrics(hwnd);
         DpiChanged += OnDpiChanged;
     }
 
     /// <summary>窗口跨显示器后 DPI 变化：重算尺寸保持 1:1。</summary>
     private void OnDpiChanged(object sender, System.Windows.DpiChangedEventArgs e)
     {
-        ReapplyMetrics();
+        IntPtr hwnd = new WindowInteropHelper(this).Handle;
+        ReapplyMetrics(hwnd);
+    }
+
+    /// <summary>用构造时传入的 scale 初算尺寸（HWND 尚未创建）。</summary>
+    private void ReapplyMetrics()
+    {
+        ApplyMetricsCore();
     }
 
     /// <summary>
-    /// 用窗口实际渲染 DPI（<see cref="PresentationSource.CompositionTarget.TransformToDevice"/>，
-    /// 已实现时读取，否则用当前 _scaleX/Y）重算 PinImage 尺寸、Left/Top、窗口外接尺寸。
+    /// 用确定性窗口 DPI（<see cref="DpiHelper.ScaleForWindow"/>）重算 PinImage 尺寸、Left/Top、窗口外接尺寸。
     /// 裁剪为物理像素，PinImage 用 actualScale 定尺寸 + Stretch=Fill → 渲染 ×actualScale = 物理像素 1:1，
     /// 与框选物理尺寸一致（无论窗口被赋何 DPI）。
     /// </summary>
-    private void ReapplyMetrics()
+    private void ReapplyMetrics(IntPtr hwnd)
     {
-        var src = PresentationSource.FromVisual(this);
-        if (src?.CompositionTarget is not null)
+        var (sx, sy) = DpiHelper.ScaleForWindow(hwnd);
+        _scaleX = sx;
+        _scaleY = sy;
+
+        // 兜底：API 不可用或返回值异常时回退到实际渲染 DPI。
+        if (_scaleX <= 0 || _scaleY <= 0)
         {
-            var m = src.CompositionTarget.TransformToDevice;
-            _scaleX = m.M11;
-            _scaleY = m.M22;
+            var src = PresentationSource.FromVisual(this);
+            if (src?.CompositionTarget is not null)
+            {
+                var m = src.CompositionTarget.TransformToDevice;
+                _scaleX = m.M11;
+                _scaleY = m.M22;
+            }
         }
 
+        ApplyMetricsCore();
+    }
+
+    private void ApplyMetricsCore()
+    {
         double bx = PinBorder.BorderThickness.Left; // 均匀边框（DIP）
         PinImage.Width = _naturalWidth / _scaleX;
         PinImage.Height = _naturalHeight / _scaleY;
@@ -594,6 +616,11 @@ public partial class PinWindow : Window
     /// <summary>另存为...：光栅化复合图按所选格式（PNG/JPEG）保存到用户选择的路径。</summary>
     private void SaveAs_Click(object sender, RoutedEventArgs e)
     {
+        _ = SaveAsAsync();
+    }
+
+    private async Task SaveAsAsync()
+    {
         var dlg = new SaveFileDialog
         {
             Filter = "PNG 图片 (*.png)|*.png|JPEG 图片 (*.jpg;*.jpeg)|*.jpg;*.jpeg",
@@ -602,35 +629,74 @@ public partial class PinWindow : Window
         if (dlg.ShowDialog() != true)
             return;
 
-        bool isJpeg = dlg.FileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
-                   || dlg.FileName.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase);
-        BitmapEncoder encoder = isJpeg ? new JpegBitmapEncoder() : new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(RenderComposite()));
-        using var fs = new FileStream(dlg.FileName, FileMode.Create);
-        encoder.Save(fs);
+        string fileName = dlg.FileName;
+        BitmapSource composite = RenderComposite();
+        await Task.Run(() =>
+        {
+            try
+            {
+                bool isJpeg = fileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
+                           || fileName.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase);
+                BitmapEncoder encoder = isJpeg ? new JpegBitmapEncoder() : new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(composite));
+                using var fs = new FileStream(fileName, FileMode.Create);
+                encoder.Save(fs);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"ERROR: 保存图片失败: {ex.Message}");
+            }
+        }).ConfigureAwait(false);
     }
 
     /// <summary>作为文件打开：光栅化复合图写临时缓存文件后用系统默认程序打开。</summary>
     private void OpenAsFile_Click(object sender, RoutedEventArgs e)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"myquicker_pin_{System.Guid.NewGuid():N}.png");
-        try
-        {
-            var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(RenderComposite()));
-            using var fs = new FileStream(path, FileMode.Create);
-            encoder.Save(fs);
+        _ = OpenAsFileAsync();
+    }
 
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = path,
-                UseShellExecute = true,
-            });
-        }
-        catch
+    private async Task OpenAsFileAsync()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"myquicker_pin_{System.Guid.NewGuid():N}.png");
+        BitmapSource composite = RenderComposite();
+        await Task.Run(() =>
         {
-            // 打开失败时静默：贴图窗口本身不受影响
-        }
+            try
+            {
+                var encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(composite));
+                using var fs = new FileStream(path, FileMode.Create);
+                encoder.Save(fs);
+
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = path,
+                    UseShellExecute = true,
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"ERROR: 作为文件打开失败: {ex.Message}");
+            }
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>窗口关闭时释放图片源、Brush、批注元素、鼠标捕获与事件订阅，避免资源泄漏。</summary>
+    protected override void OnClosed(EventArgs e)
+    {
+        PinImage.Source = null;
+        PinImage.ClearValue(System.Windows.Controls.Image.EffectProperty);
+        PinBorder.BorderBrush = null;
+        AnnotationCanvas.Children.Clear();
+        _currentBrush = null!;
+
+        if (AnnotationCanvas.IsMouseCaptured)
+            AnnotationCanvas.ReleaseMouseCapture();
+
+        SourceInitialized -= OnSourceInitialized;
+        DpiChanged -= OnDpiChanged;
+
+        base.OnClosed(e);
     }
 
     /// <summary>关闭。</summary>

@@ -1,55 +1,57 @@
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.Linq;
-using System.Windows;
 using System.Windows.Forms;
-using System.Windows.Media.Imaging;
+using MyQuicker.Domain.DTO;
 using MyQuicker.Interop;
-using MyQuicker.Models;
 
 namespace MyQuicker.Services;
 
 /// <summary>
-/// Captures a full base image spanning the capture scope and returns
-/// it as a WPF BitmapSource along with the physical-screen bounds. Per
-/// SPEC step 8A.
+/// Captures a full base image spanning the capture scope and returns it as a
+/// disposable <see cref="CapturedImage"/> domain object. Per SPEC step 8A.
 /// </summary>
-internal sealed class ScreenshotService
+internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
 {
+    private readonly SnippingSettings _settings;
+
+    public ScreenshotCaptureService(SnippingSettings settings)
+    {
+        _settings = settings ?? throw new System.ArgumentNullException(nameof(settings));
+    }
+
     /// <summary>
-    /// Captures the chosen scope into a single bitmap and converts it to a
-    /// frozen BitmapSource, freeing the intermediate GDI handle.
+    /// Captures the chosen scope into a single bitmap and wraps it in a
+    /// <see cref="CapturedImage"/>. The caller owns the bitmap and must
+    /// dispose it after converting or consuming the pixels.
     /// </summary>
-    /// <returns>
-    /// <c>Source</c>：全物理像素底图（32bppArgb，高保真）；
-    /// <c>Bounds</c>：物理屏矩形（X/Y 可能为负）；
-    /// <c>FallbackToCurrent</c>：AllMonitors 因主副屏 DPI 不一致无法跨屏而回退为光标所在屏。
-    /// </returns>
-    public (BitmapSource Source, Rectangle Bounds, bool FallbackToCurrent) Capture()
+    public CapturedImage Capture()
     {
         var (bounds, fallback) = ComputeBounds();
+        return CaptureCore(bounds, fallback);
+    }
 
-        using var bmp = new Bitmap(bounds.Width, bounds.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using (var g = Graphics.FromImage(bmp))
+    /// <summary>
+    /// 异步采集截图范围，避免 UI 线程被 <see cref="System.Drawing.Graphics.CopyFromScreen"/> 阻塞。
+    /// 调用方仍需在消费完毕后显式释放返回的 <see cref="CapturedImage"/ >。
+    /// </summary>
+    public Task<CapturedImage> CaptureAsync()
+    {
+        var (bounds, fallback) = ComputeBounds();
+        return Task.Run(() => CaptureCore(bounds, fallback));
+    }
+
+    private static CapturedImage CaptureCore(Rectangle bounds, bool fallback)
+    {
+        var bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
+        using (var g = Graphics.FromImage(bitmap))
         {
             // Copy the full capture scope (source origin may be negative). 物理像素 1:1 抓取，
             // 不受 DPI 缩放影响——底图始终为屏幕真实物理分辨率，保证截图质量。
-            g.CopyFromScreen(bounds.X, bounds.Y, 0, 0, bmp.Size, CopyPixelOperation.SourceCopy);
+            g.CopyFromScreen(bounds.X, bounds.Y, 0, 0, bitmap.Size, CopyPixelOperation.SourceCopy);
         }
 
-        IntPtr hBitmap = bmp.GetHbitmap();
-        try
-        {
-            BitmapSource source = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
-                hBitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
-
-            source.Freeze(); // force a copy so the HBITMAP can be released safely
-            return (source, bounds, fallback);
-        }
-        finally
-        {
-            // Core memory constraint: release the unmanaged GDI handle immediately.
-            NativeMethods.DeleteObject(hBitmap);
-        }
+        return new CapturedImage(bitmap, bounds, fallback);
     }
 
     /// <summary>
@@ -59,10 +61,10 @@ internal sealed class ScreenshotService
     /// （显示器在主屏左/上方时）。AllMonitors 且主副屏 DPI 不一致时回退为光标所在屏
     /// （单 WPF 窗口无法跨混合 DPI 1:1 渲染，docs/02 §5）。
     /// </summary>
-    private static (Rectangle Bounds, bool FallbackToCurrent) ComputeBounds()
+    private (Rectangle Bounds, bool FallbackToCurrent) ComputeBounds()
     {
         Screen[] screens = Screen.AllScreens;
-        var scope = SettingsManager.Instance.Settings.Snipping.CaptureScope;
+        var scope = _settings.CaptureScope;
 
         if (scope == SnippingCaptureScope.CurrentMonitor)
             return (CurrentMonitorBounds(screens), false);
@@ -77,7 +79,7 @@ internal sealed class ScreenshotService
     /// <summary>光标所在显示器矩形；光标不在任何屏（罕见）时回退虚拟屏。</summary>
     private static Rectangle CurrentMonitorBounds(Screen[] screens)
     {
-        var cursor = System.Windows.Forms.Cursor.Position;
+        var cursor = Cursor.Position;
         foreach (Screen s in screens)
             if (s.Bounds.Contains(cursor))
                 return s.Bounds;

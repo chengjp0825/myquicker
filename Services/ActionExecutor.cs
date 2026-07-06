@@ -1,72 +1,129 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using MyQuicker.Models;
-using MyQuicker.UI;
+using MyQuicker.Domain.DTO;
+using MyQuicker.Domain.Runtime.Commands;
 
 namespace MyQuicker.Services;
 
 /// <summary>
-/// Loads actions from settings.json (via ActionStore) and executes
-/// them via System.Diagnostics.Process. Per SPEC.md §4.3 / step 7/8A.
+/// 动作执行调度中心：根据 <see cref="ActionItem.Command"/> 从 <see cref="CommandRegistry"/> 中检索命令，
+/// 将 DTO 字段转换为纯粹参数后执行，并统一捕获异常包装为 <see cref="ActionResult"/>。
 /// </summary>
-internal sealed class ActionExecutor
+public sealed class ActionExecutor
 {
-    private readonly ScreenshotService _screenshotService = new();
+    private readonly CommandRegistry _registry;
 
-    /// <summary>
-    /// Returns the current action list, freshly loaded from settings.json
-    /// so edits made in the settings window are reflected on the next wake-up.
-    /// </summary>
-    public List<ActionItem> GetActions() => ActionStore.GetActions();
-
-    /// <summary>
-    /// Executes the action. The reserved command "sys:snipping" launches the
-    /// native screenshot overlay instead of starting an external process.
-    /// </summary>
-    public void Execute(ActionItem item)
+    public ActionExecutor(CommandRegistry registry)
     {
-        if (item.Command == "sys:snipping")
-        {
-            var (source, bounds, fallback) = _screenshotService.Capture();
-            if (fallback)
-            {
-                // AllMonitors 在主副屏 DPI 不一致时无法跨屏 1:1 渲染，已回退为光标所在屏。
-                Toast.Show("主副屏缩放不一致，已截取当前屏", 3000);
-            }
-            var window = new ScreenshotWindow(source, bounds);
-            window.ShowDialog(); // modal — blocks until the user closes it
-            return;
-        }
+        _registry = registry ?? throw new ArgumentNullException(nameof(registry));
+    }
 
+    /// <summary>执行动作。</summary>
+    public ActionResult Execute(CommandContext ctx, ActionItem item)
+    {
+        return ResolveCommand(ctx, item, (cmd, parameters) => cmd.Execute(ctx, parameters));
+    }
+
+    /// <summary>异步执行动作，避免 UI 线程被截图/启动等物理操作阻塞。</summary>
+    public async Task<ActionResult> ExecuteAsync(CommandContext ctx, ActionItem item)
+    {
+        return await ResolveCommandAsync(ctx, item).ConfigureAwait(false);
+    }
+
+    private ActionResult ResolveCommand(CommandContext ctx, ActionItem item, Func<ICommand, Dictionary<string, string>, ActionResult> invoke)
+    {
         if (string.IsNullOrWhiteSpace(item.Command))
         {
-            Debug.WriteLine("ERROR: 动作命令为空，已忽略。");
-            Toast.Show(string.IsNullOrWhiteSpace(item.Name) ? "动作未配置命令" : $"动作「{item.Name}」未配置命令", 3000);
-            return;
+            return new ActionResult(
+                ActionOutcomeKind.EmptyCommand,
+                string.IsNullOrWhiteSpace(item.Name)
+                    ? "动作未配置命令"
+                    : $"动作「{item.Name}」未配置命令");
         }
 
-        // sys: 前缀为内部协议指令；非已实现者按未知指令提示，避免误当外部程序启动失败。
-        if (item.Command.StartsWith("sys:", StringComparison.Ordinal))
+        ICommand? command = _registry.Lookup(item.Command);
+        if (command is null)
         {
-            Toast.Show($"未知指令：{item.Command}", 3000);
-            return;
+            // 保留 sys: 前缀的语义：未注册的内建指令视为未知内建指令。
+            if (item.Command.StartsWith("sys:", StringComparison.Ordinal))
+            {
+                return new ActionResult(
+                    ActionOutcomeKind.UnknownSystemCommand,
+                    $"未知指令：{item.Command}");
+            }
+
+            return new ActionResult(
+                ActionOutcomeKind.LaunchFailed,
+                $"无法启动：{item.Command}",
+                ErrorCommand: item.Command);
         }
 
         try
         {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = item.Command,
-                Arguments = item.Arguments ?? string.Empty,
-                UseShellExecute = true,
-            });
+            Dictionary<string, string> parameters = BuildParameters(item);
+            return invoke(command, parameters);
         }
         catch (Exception ex)
         {
-            // 错填命令/找不到程序：拦截 Win32Exception，避免常驻进程闪退；弹 toast 告知用户。
-            Debug.WriteLine($"ERROR: 启动动作失败 ({item.Command}): {ex.Message}");
-            Toast.Show($"无法启动：{item.Command}", 3000);
+            Debug.WriteLine($"ERROR: 执行动作失败 ({item.Command}): {ex.Message}");
+            return new ActionResult(
+                ActionOutcomeKind.LaunchFailed,
+                $"无法启动：{item.Command}",
+                ErrorCommand: item.Command);
         }
+    }
+
+    private async Task<ActionResult> ResolveCommandAsync(CommandContext ctx, ActionItem item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Command))
+        {
+            return new ActionResult(
+                ActionOutcomeKind.EmptyCommand,
+                string.IsNullOrWhiteSpace(item.Name)
+                    ? "动作未配置命令"
+                    : $"动作「{item.Name}」未配置命令");
+        }
+
+        ICommand? command = _registry.Lookup(item.Command);
+        if (command is null)
+        {
+            if (item.Command.StartsWith("sys:", StringComparison.Ordinal))
+            {
+                return new ActionResult(
+                    ActionOutcomeKind.UnknownSystemCommand,
+                    $"未知指令：{item.Command}");
+            }
+
+            return new ActionResult(
+                ActionOutcomeKind.LaunchFailed,
+                $"无法启动：{item.Command}",
+                ErrorCommand: item.Command);
+        }
+
+        try
+        {
+            Dictionary<string, string> parameters = BuildParameters(item);
+            return await command.ExecuteAsync(ctx, parameters).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"ERROR: 执行动作失败 ({item.Command}): {ex.Message}");
+            return new ActionResult(
+                ActionOutcomeKind.LaunchFailed,
+                $"无法启动：{item.Command}",
+                ErrorCommand: item.Command);
+        }
+    }
+
+    private static Dictionary<string, string> BuildParameters(ActionItem item)
+    {
+        return new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["name"] = item.Name ?? string.Empty,
+            ["command"] = item.Command,
+            ["arguments"] = item.Arguments ?? string.Empty,
+            ["icon"] = item.Icon ?? string.Empty,
+        };
     }
 }

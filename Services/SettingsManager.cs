@@ -1,40 +1,35 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using MyQuicker.Models;
+using MyQuicker.Domain.DTO;
 
 namespace MyQuicker.Services;
 
 /// <summary>
-/// 统一配置中心（单例）：持久化 <see cref="SettingsModel"/> 到 settings.json。
-/// <see cref="App.OnStartup"/> 调 <see cref="Load"/> 加载（首次自动从旧 appsettings.json
-/// 迁移唤醒键与动作列表），<see cref="App.OnExit"/> 调 <see cref="Save"/> 落盘。
-/// 同步 IO（File.ReadAllText / File.WriteAllText），不引入异步以保调用时序。Per SPEC 重构。
+/// 统一配置中心：负责 <see cref="Settings"/> DTO 的磁盘读写与数据迁移。
+/// 仅操作纯数据 DTO，不持有任何运行时对象。实例由组合根创建并注入消费者。
 /// </summary>
 internal sealed class SettingsManager
 {
-    /// <summary>全局单例。静态初始化不执行 IO，真正的加载发生在首次 <see cref="Load"/>。</summary>
-    public static SettingsManager Instance { get; } = new();
-
-    /// <summary>当前内存中的配置模型。</summary>
-    public SettingsModel Settings { get; private set; } = new();
+    /// <summary>当前内存中的 <see cref="Settings"/> DTO。</summary>
+    public Settings Settings { get; private set; } = new();
 
     private const string SettingsFile = "settings.json";
     private const string LegacyFile = "appsettings.json";
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    internal static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
     };
 
-    private SettingsManager() { }
+    public SettingsManager() { }
 
     /// <summary>
     /// 从 settings.json 加载。文件不存在时用默认值新建，并自动迁移旧
-    /// appsettings.json 的唤醒键与动作列表（JsonDocument 解析，不依赖已删除的 AppSettings 类型）。
-    /// 每次调用重读磁盘，保留 MainWindow 唤醒热重载与 SettingsWindow 编辑隔离。
+    /// appsettings.json 的触发器与动作列表。
     /// </summary>
-    public SettingsModel Load()
+    public Settings Load()
     {
         string settingsPath = Path.Combine(AppContext.BaseDirectory, SettingsFile);
 
@@ -45,9 +40,9 @@ internal sealed class SettingsManager
         }
 
         // 首次启动：默认值 + 迁移旧 appsettings.json，随即落盘 settings.json。
-        SettingsModel model = new();
-        MigrateFromLegacy(model);
-        Settings = model;
+        Settings settings = new();
+        MigrateFromLegacy(settings);
+        Settings = settings;
         Save();
         return Settings;
     }
@@ -55,6 +50,17 @@ internal sealed class SettingsManager
     /// <summary>把当前 <see cref="Settings"/> 同步写入 settings.json。</summary>
     public void Save()
     {
+        Save(Settings);
+    }
+
+    /// <summary>用新的 <see cref="Settings"/> DTO 替换当前内存配置并落盘。</summary>
+    public void Save(Settings settings)
+    {
+        if (settings is null)
+            throw new ArgumentNullException(nameof(settings));
+
+        Settings = Normalize(settings);
+
         string settingsPath = Path.Combine(AppContext.BaseDirectory, SettingsFile);
         string tmpPath = settingsPath + ".tmp";
         string json = JsonSerializer.Serialize(Settings, JsonOptions);
@@ -64,35 +70,118 @@ internal sealed class SettingsManager
         File.Move(tmpPath, settingsPath, overwrite: true);
     }
 
-    /// <summary>
-    /// 读取 settings.json 并做空值兜底；脏文件/解析失败回退默认值。
-    /// </summary>
-    private static SettingsModel ReadSettings(string path)
+    /// <summary>异步保存当前 Settings，避免 UI 线程被文件 I/O 阻塞。</summary>
+    public Task SaveAsync()
+    {
+        return SaveAsync(Settings);
+    }
+
+    /// <summary>异步保存指定 Settings DTO。</summary>
+    public async Task SaveAsync(Settings settings)
+    {
+        if (settings is null)
+            throw new ArgumentNullException(nameof(settings));
+
+        Settings = Normalize(settings);
+
+        string settingsPath = Path.Combine(AppContext.BaseDirectory, SettingsFile);
+        string tmpPath = settingsPath + ".tmp";
+        string json = JsonSerializer.Serialize(Settings, JsonOptions);
+
+        await File.WriteAllTextAsync(tmpPath, json).ConfigureAwait(false);
+        await Task.Run(() => File.Move(tmpPath, settingsPath, overwrite: true)).ConfigureAwait(false);
+    }
+
+    /// <summary>异步加载 settings.json。</summary>
+    public async Task<Settings> LoadAsync()
+    {
+        string settingsPath = Path.Combine(AppContext.BaseDirectory, SettingsFile);
+
+        if (File.Exists(settingsPath))
+        {
+            Settings = await ReadSettingsAsync(settingsPath).ConfigureAwait(false);
+            return Settings;
+        }
+
+        Settings settings = new();
+        await Task.Run(() => MigrateFromLegacy(settings)).ConfigureAwait(false);
+        Settings = settings;
+        await SaveAsync().ConfigureAwait(false);
+        return Settings;
+    }
+
+    private static async Task<Settings> ReadSettingsAsync(string path)
+    {
+        try
+        {
+            string json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
+            using JsonDocument doc = JsonDocument.Parse(json);
+            JsonElement root = doc.RootElement;
+
+            if (root.TryGetProperty("Action", out _))
+            {
+                return MigrateFromOldFormat(root);
+            }
+
+            Settings? settings = JsonSerializer.Deserialize<Settings>(json, JsonOptions);
+            return Normalize(settings ?? new Settings());
+        }
+        catch (JsonException)
+        {
+            await Task.Run(() => BackupCorruptFile(path)).ConfigureAwait(false);
+            return new Settings();
+        }
+        catch
+        {
+            return new Settings();
+        }
+    }
+
+    /// <summary>读取 settings.json 并做空值兜底；脏文件/解析失败回退默认值。</summary>
+    private static Settings ReadSettings(string path)
     {
         try
         {
             string json = File.ReadAllText(path);
-            SettingsModel? model = JsonSerializer.Deserialize<SettingsModel>(json, JsonOptions);
-            if (model is null)
-                return new SettingsModel();
+            using JsonDocument doc = JsonDocument.Parse(json);
+            JsonElement root = doc.RootElement;
 
-            model.Action ??= new ActionSettings();
-            model.Snipping ??= new SnippingSettings();
-            model.Menu ??= new MenuSettings();
-            model.Pin ??= new PinSettings();
-            model.Action.Actions ??= new List<ActionItem>();
-            return model;
+            // 旧格式检测：根节点含 Action 属性即为旧 SettingsModel 结构。
+            if (root.TryGetProperty("Action", out _))
+            {
+                return MigrateFromOldFormat(root);
+            }
+
+            Settings? settings = JsonSerializer.Deserialize<Settings>(json, JsonOptions);
+            return Normalize(settings ?? new Settings());
         }
         catch (JsonException)
         {
-            // 脏 JSON：备份坏文件再回退默认值，避免每次启动都读到坏文件。
             BackupCorruptFile(path);
-            return new SettingsModel();
+            return new Settings();
         }
         catch
         {
-            return new SettingsModel();
+            return new Settings();
         }
+    }
+
+    /// <summary>确保 Settings 及其子对象无 null，避免后续调用空引用。</summary>
+    private static Settings Normalize(Settings settings)
+    {
+        settings.TriggerBindings ??= new List<TriggerBinding>();
+        settings.Preferences ??= new Preferences();
+        settings.Preferences.Snipping ??= new SnippingSettings();
+        settings.Preferences.Menu ??= new MenuSettings();
+        settings.Preferences.Pin ??= new PinSettings();
+        settings.MenuGroups ??= new List<MenuGroup>();
+
+        foreach (var group in settings.MenuGroups)
+        {
+            group.Actions ??= new List<ActionItem>();
+        }
+
+        return settings;
     }
 
     /// <summary>
@@ -115,10 +204,104 @@ internal sealed class SettingsManager
     }
 
     /// <summary>
-    /// 用 JsonDocument 解析旧 appsettings.json，把唤醒键与动作列表迁入 <paramref name="model"/>.Action。
-    /// 不依赖已删除的 AppSettings 类型；旧文件不存在或解析失败则保留默认动作。
+    /// 将旧 SettingsModel 格式（Action / Snipping / Menu / Pin）迁移为新的
+    /// Settings DTO 结构（TriggerBindings / Preferences / MenuGroups）。
     /// </summary>
-    private static void MigrateFromLegacy(SettingsModel model)
+    private static Settings MigrateFromOldFormat(JsonElement root)
+    {
+        var settings = new Settings();
+
+        if (root.TryGetProperty("Action", out JsonElement action))
+        {
+            var binding = new TriggerBinding();
+
+            if (action.TryGetProperty("WakeupMessage", out JsonElement wm) && wm.TryGetInt32(out int wakeup))
+            {
+                if (wakeup == -1)
+                {
+                    binding.Type = TriggerType.CircleGesture;
+                }
+                else
+                {
+                    binding.Type = TriggerType.Button;
+                    binding.WakeupMessage = wakeup;
+                }
+            }
+
+            if (action.TryGetProperty("XButtonData", out JsonElement xb) && xb.TryGetInt32(out int xbutton))
+                binding.XButtonData = xbutton;
+
+            if (action.TryGetProperty("InterceptWakeupKey", out JsonElement intercept) && intercept.ValueKind == JsonValueKind.True)
+                binding.InterceptWakeupKey = true;
+            else if (intercept.ValueKind == JsonValueKind.False)
+                binding.InterceptWakeupKey = false;
+
+            if (action.TryGetProperty("CircleSensitivity", out JsonElement cs) && cs.TryGetInt32(out int sensitivity))
+                binding.CircleSensitivity = (CircleSensitivity)sensitivity;
+
+            settings.TriggerBindings.Add(binding);
+
+            // 旧格式把动作列表放在 Action 里；迁移时放进默认菜单组。
+            if (action.TryGetProperty("Actions", out JsonElement actions) && actions.ValueKind == JsonValueKind.Array)
+            {
+                var defaultGroup = new MenuGroup
+                {
+                    Id = "default",
+                    DisplayName = "默认",
+                    Icon = "EFA8",
+                };
+
+                foreach (JsonElement el in actions.EnumerateArray())
+                {
+                    var item = new ActionItem();
+                    if (el.TryGetProperty("Name", out JsonElement n) && n.ValueKind == JsonValueKind.String)
+                        item.Name = n.GetString() ?? string.Empty;
+                    if (el.TryGetProperty("Command", out JsonElement c) && c.ValueKind == JsonValueKind.String)
+                        item.Command = c.GetString() ?? string.Empty;
+                    if (el.TryGetProperty("Arguments", out JsonElement a) && a.ValueKind == JsonValueKind.String)
+                        item.Arguments = a.GetString() ?? string.Empty;
+                    if (el.TryGetProperty("Icon", out JsonElement ic) && ic.ValueKind == JsonValueKind.String)
+                        item.Icon = ic.GetString() ?? "EFA8";
+                    defaultGroup.Actions.Add(item);
+                }
+
+                if (defaultGroup.Actions.Count > 0)
+                    settings.MenuGroups.Add(defaultGroup);
+            }
+        }
+
+        settings.Preferences.Snipping = DeserializeOrDefault<SnippingSettings>(root, "Snipping");
+        settings.Preferences.Menu = DeserializeOrDefault<MenuSettings>(root, "Menu");
+        settings.Preferences.Pin = DeserializeOrDefault<PinSettings>(root, "Pin");
+
+        return Normalize(settings);
+    }
+
+    /// <summary>从 JsonElement 读取指定属性并反序列化为 T；失败返回默认值。</summary>
+    private static T DeserializeOrDefault<T>(JsonElement root, string propertyName) where T : new()
+    {
+        if (root.TryGetProperty(propertyName, out JsonElement element))
+        {
+            try
+            {
+                T? value = JsonSerializer.Deserialize<T>(element.GetRawText(), JsonOptions);
+                if (value is not null)
+                    return value;
+            }
+            catch
+            {
+                // 忽略单个属性的解析失败，回退默认值。
+            }
+        }
+
+        return new T();
+    }
+
+    /// <summary>
+    /// 用 JsonDocument 解析旧 appsettings.json，把触发器与动作列表迁入
+    /// <paramref name="settings"/>。
+    /// </summary>
+    private static void MigrateFromLegacy(Settings settings)
     {
         string legacyPath = Path.Combine(AppContext.BaseDirectory, LegacyFile);
         if (!File.Exists(legacyPath))
@@ -129,15 +312,36 @@ internal sealed class SettingsManager
             using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(legacyPath));
             JsonElement root = doc.RootElement;
 
+            var binding = settings.TriggerBindings.Count > 0
+                ? settings.TriggerBindings[0]
+                : new TriggerBinding();
+
             if (root.TryGetProperty("WakeupMessage", out JsonElement wm) && wm.TryGetInt32(out int wakeup))
-                model.Action.WakeupMessage = wakeup;
+            {
+                if (wakeup == -1)
+                {
+                    binding.Type = TriggerType.CircleGesture;
+                }
+                else
+                {
+                    binding.Type = TriggerType.Button;
+                    binding.WakeupMessage = wakeup;
+                }
+            }
 
             if (root.TryGetProperty("XButtonData", out JsonElement xb) && xb.TryGetInt32(out int xbutton))
-                model.Action.XButtonData = xbutton;
+                binding.XButtonData = xbutton;
+
+            if (settings.TriggerBindings.Count == 0)
+                settings.TriggerBindings.Add(binding);
 
             if (root.TryGetProperty("Actions", out JsonElement actions) && actions.ValueKind == JsonValueKind.Array)
             {
-                model.Action.Actions.Clear();
+                var defaultGroup = settings.MenuGroups.Count > 0
+                    ? settings.MenuGroups[0]
+                    : new MenuGroup { Id = "default", DisplayName = "默认", Icon = "EFA8" };
+
+                defaultGroup.Actions.Clear();
                 foreach (JsonElement el in actions.EnumerateArray())
                 {
                     var item = new ActionItem();
@@ -147,13 +351,16 @@ internal sealed class SettingsManager
                         item.Command = c.GetString() ?? string.Empty;
                     if (el.TryGetProperty("Arguments", out JsonElement a) && a.ValueKind == JsonValueKind.String)
                         item.Arguments = a.GetString() ?? string.Empty;
-                    model.Action.Actions.Add(item);
+                    defaultGroup.Actions.Add(item);
                 }
+
+                if (settings.MenuGroups.Count == 0 && defaultGroup.Actions.Count > 0)
+                    settings.MenuGroups.Add(defaultGroup);
             }
         }
         catch
         {
-            // 旧文件损坏：保留默认动作，不抛。
+            // 旧文件损坏：保留默认配置，不抛。
         }
     }
 }
