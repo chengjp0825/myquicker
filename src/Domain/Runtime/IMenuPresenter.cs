@@ -16,7 +16,7 @@ public interface IMenuPresenter
 
     /// <summary>菜单请求关闭（例如用户点击外部、点击按钮或齿轮）。</summary>
     /// <remarks>
-    /// 由 <see cref="WakeOrchestrator"/> 订阅并处理；Presenter 自身不得直接调用 <see cref="Dismiss"/u003e。
+    /// 由 <see cref="WakeOrchestrator"/> 订阅并处理；Presenter 自身不得直接调用 <see cref="Dismiss"/>。
     /// </remarks>
     event EventHandler? DismissRequested;
 
