@@ -1,13 +1,9 @@
 using System;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Interop;
-using System.Windows.Media.Imaging;
-using System.Windows.Threading;
 using MyQuicker.Domain.DTO;
-using MyQuicker.Interop;
 using MyQuicker.Services;
 
 namespace MyQuicker.Domain.Runtime;
@@ -15,6 +11,7 @@ namespace MyQuicker.Domain.Runtime;
 /// <summary>
 /// 截图工作流编排器：Capture → Select Region → Pin。
 /// 把原先散落在 <see cref="UI.MainWindow"/> 与 <see cref="UI.ScreenshotWindow"/> 中的流程收敛到可测试的单一入口。
+/// 本类仅依赖 GDI+，不引用任何 WPF 类型，保证领域层与 UI 框架解耦。
 /// </summary>
 public class ScreenshotWorkflow
 {
@@ -23,12 +20,8 @@ public class ScreenshotWorkflow
     private readonly IScreenshotPinService _pinService;
     private readonly IToastService _toastService;
     private readonly SnippingSettings _snippingSettings;
-    private readonly PinSettings _pinSettings;
-    private readonly Dispatcher? _uiDispatcher;
 
-    /// <summary>
-    /// 初始化工作流及其所有依赖。构造时捕获当前线程的 Dispatcher，供剪贴板操作调度回 UI 线程。
-    /// </summary>
+    /// <summary>初始化工作流及其所有依赖。</summary>
     public ScreenshotWorkflow(
         IScreenshotCaptureService captureService,
         IScreenshotOverlay overlay,
@@ -42,13 +35,10 @@ public class ScreenshotWorkflow
         _pinService = pinService ?? throw new ArgumentNullException(nameof(pinService));
         _toastService = toastService ?? throw new ArgumentNullException(nameof(toastService));
         _snippingSettings = snippingSettings ?? throw new ArgumentNullException(nameof(snippingSettings));
-        _pinSettings = pinSettings ?? throw new ArgumentNullException(nameof(pinSettings));
-        _uiDispatcher = Dispatcher.CurrentDispatcher;
+        _ = pinSettings ?? throw new ArgumentNullException(nameof(pinSettings));
     }
 
-    /// <summary>
-    /// 执行完整截图工作流。
-    /// </summary>
+    /// <summary>执行完整截图工作流。</summary>
     /// <param name="cancellationToken">取消令牌；在步骤边界处检查。</param>
     public virtual async Task RunAsync(CancellationToken cancellationToken = default)
     {
@@ -79,10 +69,7 @@ public class ScreenshotWorkflow
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            BitmapSource source = await Task.Run(() => ConvertToBitmapSource(captured.Bitmap)).ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
-
-            Rectangle? selection = await _overlay.SelectRegionAsync(source, captured.Bounds).ConfigureAwait(false);
+            Rectangle? selection = await _overlay.SelectRegionAsync(captured.Bitmap, captured.Bounds).ConfigureAwait(false);
             if (!selection.HasValue)
                 return;
 
@@ -95,27 +82,18 @@ public class ScreenshotWorkflow
                 selectedBounds.Width,
                 selectedBounds.Height);
 
-            // 严格夹取到 base-image 边界，防止越界矩形让 CroppedBitmap 抛异常。
-            cropRect.X = Math.Clamp(cropRect.X, 0, source.PixelWidth);
-            cropRect.Y = Math.Clamp(cropRect.Y, 0, source.PixelHeight);
-            cropRect.Width = Math.Clamp(cropRect.Width, 0, source.PixelWidth - cropRect.X);
-            cropRect.Height = Math.Clamp(cropRect.Height, 0, source.PixelHeight - cropRect.Y);
+            // 严格夹取到 base-image 边界，防止越界矩形让 DrawImage 抛异常。
+            cropRect.X = Math.Clamp(cropRect.X, 0, captured.Bitmap.Width);
+            cropRect.Y = Math.Clamp(cropRect.Y, 0, captured.Bitmap.Height);
+            cropRect.Width = Math.Clamp(cropRect.Width, 0, captured.Bitmap.Width - cropRect.X);
+            cropRect.Height = Math.Clamp(cropRect.Height, 0, captured.Bitmap.Height - cropRect.Y);
 
             if (cropRect.Width <= 0 || cropRect.Height <= 0)
                 return;
 
-            var crop = new CroppedBitmap(source, new Int32Rect(cropRect.X, cropRect.Y, cropRect.Width, cropRect.Height));
-            crop.Freeze();
-
-            if (_snippingSettings.AfterScreenshot != SnippingAfterScreenshot.PinOnly)
-            {
-                await CopyToClipboardAsync(crop).ConfigureAwait(false);
-            }
-
-            if (_snippingSettings.AfterScreenshot != SnippingAfterScreenshot.CopyOnly)
-            {
-                await _pinService.PinAsync(crop, selectedBounds).ConfigureAwait(false);
-            }
+            Bitmap crop = CropBitmap(captured.Bitmap, cropRect);
+            await _pinService.PinAsync(crop, selectedBounds).ConfigureAwait(false);
+            // 注意：crop Bitmap 的所有权转移给 _pinService 的实现；适配器在转换为 BitmapSource 后负责释放。
         }
         finally
         {
@@ -123,47 +101,19 @@ public class ScreenshotWorkflow
         }
     }
 
-    /// <summary>
-    /// 把 GDI+ Bitmap 转换为冻结的 WPF BitmapSource；转换后立即释放临时 HBITMAP。
-    /// </summary>
-    private static BitmapSource ConvertToBitmapSource(Bitmap bitmap)
+    /// <summary>用 GDI+ 从源位图中裁剪出指定矩形区域。</summary>
+    private static Bitmap CropBitmap(Bitmap source, Rectangle cropRect)
     {
-        if (bitmap is null)
-            throw new ArgumentNullException(nameof(bitmap));
+        var crop = new Bitmap(cropRect.Width, cropRect.Height, PixelFormat.Format32bppArgb);
+        using (var g = Graphics.FromImage(crop))
+        {
+            g.DrawImage(
+                source,
+                new Rectangle(0, 0, cropRect.Width, cropRect.Height),
+                cropRect,
+                GraphicsUnit.Pixel);
+        }
 
-        IntPtr hBitmap = bitmap.GetHbitmap();
-        try
-        {
-            var source = Imaging.CreateBitmapSourceFromHBitmap(
-                hBitmap,
-                IntPtr.Zero,
-                Int32Rect.Empty,
-                BitmapSizeOptions.FromEmptyOptions());
-            source.Freeze();
-            return source;
-        }
-        finally
-        {
-            NativeMethods.DeleteObject(hBitmap);
-        }
-    }
-
-    /// <summary>
-    /// 将裁剪后的图片写入剪贴板；被独占时仅弹 toast 不阻断流程。
-    /// 必须在 UI 线程调用，因此通过构造时捕获的 Dispatcher 调度。
-    /// </summary>
-    private async Task CopyToClipboardAsync(BitmapSource crop)
-    {
-        if (_uiDispatcher is null)
-            return;
-
-        try
-        {
-            await _uiDispatcher.InvokeAsync(() => System.Windows.Clipboard.SetImage(crop));
-        }
-        catch (Exception ex)
-        {
-            _toastService.Show($"剪贴板被占用：{ex.Message}", 3000);
-        }
+        return crop;
     }
 }

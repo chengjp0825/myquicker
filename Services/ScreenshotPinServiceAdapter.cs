@@ -1,6 +1,5 @@
 using System.Drawing;
 using System.Threading.Tasks;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using MyQuicker.Domain.DTO;
 using MyQuicker.Domain.Runtime;
@@ -24,19 +23,27 @@ internal sealed class ScreenshotPinServiceAdapter : IScreenshotPinService
     }
 
     /// <inheritdoc/>
-    public Task PinAsync(BitmapSource source, Rectangle physicalBounds)
+    public Task PinAsync(Bitmap source, Rectangle physicalBounds)
     {
         return _dispatcher.InvokeAsync(() =>
         {
-            var (scaleX, scaleY) = DpiHelper.ScaleForBounds(physicalBounds);
-            var window = new PinWindow(
-                source,
-                physicalBounds.X,
-                physicalBounds.Y,
-                scaleX,
-                scaleY,
-                _pinSettings);
-            window.Show();
+            try
+            {
+                var bitmapSource = BitmapSourceHelper.FromBitmap(source);
+                var (scaleX, scaleY) = DpiHelper.ScaleForBounds(physicalBounds);
+                var window = new PinWindow(
+                    bitmapSource,
+                    physicalBounds.X,
+                    physicalBounds.Y,
+                    scaleX,
+                    scaleY,
+                    _pinSettings);
+                window.Show();
+            }
+            finally
+            {
+                source?.Dispose();
+            }
         }).Task;
     }
 }

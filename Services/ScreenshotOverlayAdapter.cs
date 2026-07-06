@@ -1,6 +1,5 @@
 using System.Drawing;
 using System.Threading.Tasks;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using MyQuicker.Domain.DTO;
 using MyQuicker.Domain.Runtime;
@@ -24,11 +23,12 @@ internal sealed class ScreenshotOverlayAdapter : IScreenshotOverlay
     }
 
     /// <inheritdoc/>
-    public Task<Rectangle?> SelectRegionAsync(BitmapSource fullImage, Rectangle fullBounds)
+    public Task<Rectangle?> SelectRegionAsync(Bitmap fullImage, Rectangle fullBounds)
     {
         return _dispatcher.InvokeAsync(() =>
         {
-            var window = new ScreenshotWindow(fullImage, fullBounds, _snippingSettings);
+            var source = BitmapSourceHelper.FromBitmap(fullImage);
+            var window = new ScreenshotWindow(source, fullBounds, _snippingSettings);
             bool? result = window.ShowDialog();
             if (result == true && window.SelectedBounds.HasValue)
                 return window.SelectedBounds.Value;
