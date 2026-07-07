@@ -1,0 +1,57 @@
+<h2>设置入口怎么放？</h2>
+<p class="subtitle">底部的小齿轮现在比较孤单，以下几种处理方式你倾向哪个？（点击选择）</p>
+
+<div class="options">
+  <div class="card" data-choice="footer-right" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#e8e8e8;padding:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:160px">
+      <div style="width:170px;background:rgba(30,30,30,0.95);border-radius:14px;box-shadow:0 10px 36px rgba(0,0,0,0.35);padding:12px 14px 10px">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px">
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center"><span style="font-size:17px;color:#fff">✎</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center"><span style="font-size:17px;color:#fff">⚙</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center"><span style="font-size:17px;color:#fff">📁</span></div>
+        </div>
+        <div style="border-top:1px solid rgba(255,255,255,0.1);margin-top:10px;padding-top:7px;display:flex;justify-content:flex-end"><span style="font-size:12px;color:#aaa">⚙</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>保留底部右侧</h3>
+      <p>仍然放在面板底部，但给齿轮一个更明显的 hover 态和分隔线，保持当前布局习惯。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="inline-icon" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#e8e8e8;padding:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:160px">
+      <div style="width:170px;background:rgba(30,30,30,0.95);border-radius:14px;box-shadow:0 10px 36px rgba(0,0,0,0.35);padding:12px 14px 10px">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px">
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center"><span style="font-size:17px;color:#fff">✎</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center"><span style="font-size:17px;color:#fff">📁</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center"><span style="font-size:17px;color:#fff">🔍</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center"><span style="font-size:17px;color:#fff">🌐</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center"><span style="font-size:17px;color:#fff">⚙</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center"><span style="font-size:17px;color:#fff">＋</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>把齿轮做成最后一个动作格</h3>
+      <p>不再单独放底部，而是把“设置”当作矩阵里的一个普通动作按钮。视觉更统一，也少一条分隔线。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="hidden-rightclick" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#e8e8e8;padding:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:160px">
+      <div style="width:170px;background:rgba(30,30,30,0.95);border-radius:14px;box-shadow:0 10px 36px rgba(0,0,0,0.35);padding:12px 14px 10px;position:relative">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px">
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center"><span style="font-size:17px;color:#fff">✎</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center"><span style="font-size:17px;color:#fff">⚙</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center"><span style="font-size:17px;color:#fff">📁</span></div>
+        </div>
+        <div style="position:absolute;right:-8px;bottom:-8px;background:#333;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3)"><span style="font-size:11px;color:#aaa">⚙</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>隐藏到右键 / 浮动小按钮</h3>
+      <p>面板上不常驻显示齿轮，改为右键菜单入口，或在面板右下角放一个更精致的浮动小圆钮。</p>
+    </div>
+  </div>
+</div>

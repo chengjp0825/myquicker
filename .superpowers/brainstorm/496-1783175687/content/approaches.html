@@ -1,0 +1,70 @@
+<h2>三套优化方案</h2>
+<p class="subtitle">都在你选的「紧凑网格 + 暗色 + 阴影/边框/悬停/淡入」方向内，由轻到重。点击看你倾向哪套。</p>
+
+<div class="options">
+  <div class="card" data-choice="approach-a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#e8e8e8;padding:20px;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:170px">
+      <div style="width:150px;background:rgba(30,30,30,0.95);border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,0.35);padding:10px 12px 10px;border:1px solid rgba(255,255,255,0.08)">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px">
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid rgba(255,255,255,0.05)"><span style="font-size:15px;color:#fff">✎</span><span style="font-size:8px;color:#bbb">记事</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid rgba(255,255,255,0.05)"><span style="font-size:15px;color:#fff">⚙</span><span style="font-size:8px;color:#bbb">设置</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid rgba(255,255,255,0.05)"><span style="font-size:15px;color:#fff">📁</span><span style="font-size:8px;color:#bbb">文件</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid rgba(255,255,255,0.05)"><span style="font-size:15px;color:#fff">🔍</span><span style="font-size:8px;color:#bbb">搜索</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid rgba(255,255,255,0.05)"><span style="font-size:15px;color:#fff">🌐</span><span style="font-size:8px;color:#bbb">浏览器</span></div>
+        </div>
+        <div style="border-top:1px solid rgba(255,255,255,0.1);margin-top:8px;padding-top:6px;display:flex;justify-content:flex-end"><span style="font-size:10px;color:#999">⚙</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 A：最小改动优化</h3>
+      <p>保留现有 72×72 矩阵和尺寸配置，只做“化妆”：加外阴影、1px 边框、按钮 hover 提亮、底部齿轮稍大、唤醒淡入。</p>
+      <p><strong>优点：</strong> 风险最低、代码最少、完全兼容现有 settings.json。</p>
+      <p><strong>缺点：</strong> 改善有限，按钮内拥挤、文字小的问题还在。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="approach-b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#e8e8e8;padding:20px;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:170px">
+      <div style="width:160px;background:rgba(30,30,30,0.95);border-radius:14px;box-shadow:0 10px 36px rgba(0,0,0,0.4);padding:12px 14px 12px;border:1px solid rgba(255,255,255,0.08)">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px">
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:17px;color:#fff">✎</span><span style="font-size:9px;color:#bbb">记事</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:17px;color:#fff">⚙</span><span style="font-size:9px;color:#bbb">设置</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:17px;color:#fff">📁</span><span style="font-size:9px;color:#bbb">文件</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:17px;color:#fff">🔍</span><span style="font-size:9px;color:#bbb">搜索</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:17px;color:#fff">🌐</span><span style="font-size:9px;color:#bbb">浏览器</span></div>
+        </div>
+        <div style="border-top:1px solid rgba(255,255,255,0.1);margin-top:10px;padding-top:7px;display:flex;justify-content:flex-end"><span style="font-size:11px;color:#aaa">⚙</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 B：精致紧凑网格（推荐）</h3>
+      <p>保持网格，但把按钮改为 76×76、图标 24px、文字 11px 并优化边距；按钮加细边框、hover 微缩放+提亮；面板加阴影；底部齿轮改为带 hover 的圆角按钮；唤醒淡入。</p>
+      <p><strong>优点：</strong> 在不增加面板体积的前提下明显提升质感，改动可控。</p>
+      <p><strong>缺点：</strong> 需要调整 MenuSettings 默认值，settings.json 里的旧尺寸会保留（可在迁移时覆盖默认值）。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="approach-c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#e8e8e8;padding:20px;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:170px">
+      <div style="width:170px;background:rgba(30,30,30,0.95);border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,0.45);padding:14px 16px 12px;border:1px solid rgba(255,255,255,0.08)">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:18px;color:#fff">✎</span><span style="font-size:9px;color:#bbb">记事</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:18px;color:#fff">⚙</span><span style="font-size:9px;color:#bbb">设置</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:18px;color:#fff">📁</span><span style="font-size:9px;color:#bbb">文件</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:18px;color:#fff">🔍</span><span style="font-size:9px;color:#bbb">搜索</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:18px;color:#fff">🌐</span><span style="font-size:9px;color:#bbb">浏览器</span></div>
+        </div>
+        <div style="border-top:1px solid rgba(255,255,255,0.1);margin-top:10px;padding-top:7px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:9px;color:#777">5 个动作</span>
+          <span style="font-size:11px;color:#aaa">⚙</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 C：结构化网格 + 信息脚</h3>
+      <p>在方案 B 基础上，底部增加状态信息（如动作数量、当前唤醒模式提示），按钮稍大、圆角更圆，整体更像一个精致的小工具面板。</p>
+      <p><strong>优点：</strong> 视觉层次最丰富，底部不再只是齿轮。</p>
+      <p><strong>缺点：</strong> 改动更多，可能偏离“紧凑”初衷；信息脚对常用用户价值有限。</p>
+    </div>
+  </div>
+</div>

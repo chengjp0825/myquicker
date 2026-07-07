@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build
+        run: dotnet build --configuration Release
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build
+
+      - name: Publish exe (expanded, self-contained)
+        run: >-
+          dotnet publish MyQuicker.csproj -c Release -r win-x64
+          --self-contained true
+          -p:PublishReadyToRun=true
+          -p:SatelliteResourceLanguages=zh-Hans
+          -o publish
+
+      - name: Install WiX v4 + UI extension
+        shell: pwsh
+        run: |
+          dotnet tool install -g wix --version 4.0.5
+          wix extension add WixToolset.UI.wixext/4.0.5
+
+      - name: Harvest publish directory
+        shell: pwsh
+        run: |
+          $publishDir = "publish"
+          $rootPath = (Resolve-Path $publishDir).Path
+          $files = Get-ChildItem $publishDir -Recurse -File
+          $subdirs = @()
+          foreach ($f in $files) {
+              $relDir = $f.DirectoryName.Substring($rootPath.Length).TrimStart('\','/')
+              if ($relDir -and $subdirs -notcontains $relDir) { $subdirs += $relDir }
+          }
+          $dirIds = @{ "" = "INSTALLFOLDER" }
+          foreach ($sd in $subdirs) { $dirIds[$sd] = "d_" + ($sd -replace '[^a-zA-Z0-9]','_') }
+          $wxs = "<?xml version=""1.0"" encoding=""UTF-8""?>`n<Wix xmlns=""http://wixtoolset.org/schemas/v4/wxs"">`n  <Fragment>`n    <DirectoryRef Id=""INSTALLFOLDER"">`n"
+          foreach ($sd in $subdirs) {
+              $name = Split-Path $sd -Leaf
+              $wxs += "      <Directory Id=""$($dirIds[$sd])"" Name=""$name"" />`n"
+          }
+          $wxs += "    </DirectoryRef>`n    <ComponentGroup Id=""HarvestComponents"" Directory=""INSTALLFOLDER"">`n"
+          $i = 0
+          foreach ($f in $files) {
+              $rel = $f.FullName.Substring($rootPath.Length + 1).Replace('\','/')
+              $relDir = $f.DirectoryName.Substring($rootPath.Length).TrimStart('\','/')
+              $fileId = "f$i"
+              $dirAttr = if ($relDir) { " Directory=""$($dirIds[$relDir])""" } else { "" }
+              $wxs += "      <Component Guid=""*""$dirAttr>`n        <File Id=""$fileId"" Source=""`$(var.PublishDir)$rel"" KeyPath=""yes"" />`n      </Component>`n"
+              $i++
+          }
+          $wxs += "    </ComponentGroup>`n  </Fragment>`n</Wix>"
+          $wxs | Out-File "installer/harvest.wxs" -Encoding UTF8
+          Write-Host "Harvested $i files"
+
+      - name: Build MSI
+        shell: pwsh
+        run: |
+          $v = "${{ github.ref_name }}".TrimStart('v')
+          if ([string]::IsNullOrWhiteSpace($v) -or $v -eq '${{ github.ref_name }}') { $v = "0.0.0" }
+          Write-Host "Version: $v"
+          wix build installer/MyQuicker.wxs installer/harvest.wxs -o "publish/aurora-$v.msi" -d "Version=$v" -d "PublishDir=$PWD/publish/" -ext WixToolset.UI.wixext
+          if (-not (Test-Path "publish/aurora-$v.msi")) { throw "MSI build failed" }
+          $h = (Get-FileHash "publish/aurora-$v.msi" -Algorithm SHA256).Hash
+          "$h  aurora-$v.msi" | Out-File "publish/aurora-$v.msi.sha256" -Encoding ascii
+          Write-Host "SHA256: $h"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurora-msi
+          path: publish/*.msi*
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            publish/*.msi
+            publish/*.msi.sha256

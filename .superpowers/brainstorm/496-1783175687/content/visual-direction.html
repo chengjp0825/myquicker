@@ -1,0 +1,75 @@
+<h2>唤醒面板视觉方向</h2>
+<p class="subtitle">你觉得哪种风格更接近你想要的？（点击选择，可多选）</p>
+
+<div class="options" data-multiselect>
+  <div class="card" data-choice="fluent2" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#f5f5f5;padding:20px;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:180px">
+      <div style="width:160px;background:rgba(255,255,255,0.92);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.15);padding:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;backdrop-filter:blur(12px)">
+        <div style="aspect-ratio:1;background:#E8F1FB;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px"><span style="font-size:18px;color:#0066CC">✎</span><span style="font-size:9px;color:#333">记事</span></div>
+        <div style="aspect-ratio:1;background:#f8f8f8;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px"><span style="font-size:18px;color:#555">⚙</span><span style="font-size:9px;color:#333">设置</span></div>
+        <div style="aspect-ratio:1;background:#f8f8f8;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px"><span style="font-size:18px;color:#555">📁</span><span style="font-size:9px;color:#333">文件</span></div>
+        <div style="aspect-ratio:1;background:#f8f8f8;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px"><span style="font-size:18px;color:#555">🔍</span><span style="font-size:9px;color:#333">搜索</span></div>
+        <div style="aspect-ratio:1;background:#f8f8f8;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px"><span style="font-size:18px;color:#555">🌐</span><span style="font-size:9px;color:#333">浏览器</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Fluent 2 / Win11 风</h3>
+      <p>浅灰/白色面板、亚克力质感、柔和阴影、图标按钮带浅色底，选中项用主题蓝高亮。整体干净现代。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="macos" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:linear-gradient(135deg,#e0e0e0,#f5f5f5);padding:20px;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:180px">
+      <div style="width:160px;background:rgba(255,255,255,0.75);border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,0.18);padding:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;backdrop-filter:blur(20px)">
+        <div style="aspect-ratio:1;background:linear-gradient(135deg,#007AFF,#5856D6);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15)"><span style="font-size:22px;color:white">✎</span></div>
+        <div style="aspect-ratio:1;background:linear-gradient(135deg,#8E8E93,#636366);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15)"><span style="font-size:22px;color:white">⚙</span></div>
+        <div style="aspect-ratio:1;background:linear-gradient(135deg,#34C759,#30D158);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15)"><span style="font-size:22px;color:white">📁</span></div>
+        <div style="aspect-ratio:1;background:linear-gradient(135deg,#FF9500,#FF9F0A);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15)"><span style="font-size:22px;color:white">🔍</span></div>
+        <div style="aspect-ratio:1;background:linear-gradient(135deg,#5856D6,#AF52DE);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15)"><span style="font-size:22px;color:white">🌐</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>macOS / 彩色大图标</h3>
+      <p>圆角矩形大色块图标，图标本身占主导，文字在下方或悬浮显示。活泼、识别度高，像启动台。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="minimal-dark" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#2a2a2a;padding:20px;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:180px">
+      <div style="width:160px;background:rgba(40,40,40,0.92);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.4);padding:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;backdrop-filter:blur(12px)">
+        <div style="aspect-ratio:1;background:rgba(255,255,255,0.08);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:20px;color:#fff">✎</span><span style="font-size:9px;color:#aaa">记事</span></div>
+        <div style="aspect-ratio:1;background:rgba(255,255,255,0.08);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:20px;color:#fff">⚙</span><span style="font-size:9px;color:#aaa">设置</span></div>
+        <div style="aspect-ratio:1;background:rgba(255,255,255,0.08);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:20px;color:#fff">📁</span><span style="font-size:9px;color:#aaa">文件</span></div>
+        <div style="aspect-ratio:1;background:rgba(255,255,255,0.08);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:20px;color:#fff">🔍</span><span style="font-size:9px;color:#aaa">搜索</span></div>
+        <div style="aspect-ratio:1;background:rgba(255,255,255,0.08);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:20px;color:#fff">🌐</span><span style="font-size:9px;color:#aaa">浏览器</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>极简暗色玻璃</h3>
+      <p>深色半透明面板、细边框、图标优先。保持低调不抢镜，适合夜间或喜欢暗色工具的用户。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="compact-grid" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#f0f0f0;padding:20px;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:180px">
+      <div style="width:160px;background:#333;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,0.25);padding:10px 14px 14px">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+          <div style="aspect-ratio:1;background:#444;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><span style="font-size:16px;color:#fff">✎</span><span style="font-size:8px;color:#ccc">记事</span></div>
+          <div style="aspect-ratio:1;background:#444;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><span style="font-size:16px;color:#fff">⚙</span><span style="font-size:8px;color:#ccc">设置</span></div>
+          <div style="aspect-ratio:1;background:#444;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><span style="font-size:16px;color:#fff">📁</span><span style="font-size:8px;color:#ccc">文件</span></div>
+          <div style="aspect-ratio:1;background:#444;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><span style="font-size:16px;color:#fff">🔍</span><span style="font-size:8px;color:#ccc">搜索</span></div>
+          <div style="aspect-ratio:1;background:#444;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><span style="font-size:16px;color:#fff">🌐</span><span style="font-size:8px;color:#ccc">浏览器</span></div>
+        </div>
+        <div style="border-top:1px solid rgba(255,255,255,0.1);margin-top:8px;padding-top:6px;display:flex;justify-content:flex-end"><span style="font-size:12px;color:#aaa">⚙</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>紧凑网格优化版</h3>
+      <p>保留现有矩阵结构，但增加阴影、间距、分隔线和更精致的按钮。改动最小，却更耐看。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <p class="subtitle">也可以直接告诉我："都不像，我想要 XXX"</p>
+</div>

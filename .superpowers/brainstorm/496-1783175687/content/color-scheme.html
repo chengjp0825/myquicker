@@ -1,0 +1,42 @@
+<h2>紧凑网格：配色二选一</h2>
+<p class="subtitle">两种配色方向，你更倾向哪一种？（点击选择）</p>
+
+<div class="options">
+  <div class="card" data-choice="dark" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#e8e8e8;padding:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:200px">
+      <div style="width:170px;background:rgba(30,30,30,0.95);border-radius:14px;box-shadow:0 10px 36px rgba(0,0,0,0.35);padding:12px 14px 14px">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px">
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:17px;color:#fff">✎</span><span style="font-size:9px;color:#bbb">记事</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:17px;color:#fff">⚙</span><span style="font-size:9px;color:#bbb">设置</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:17px;color:#fff">📁</span><span style="font-size:9px;color:#bbb">文件</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:17px;color:#fff">🔍</span><span style="font-size:9px;color:#bbb">搜索</span></div>
+          <div style="aspect-ratio:1;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(255,255,255,0.06)"><span style="font-size:17px;color:#fff">🌐</span><span style="font-size:9px;color:#bbb">浏览器</span></div>
+        </div>
+        <div style="border-top:1px solid rgba(255,255,255,0.1);margin-top:10px;padding-top:7px;display:flex;justify-content:flex-end"><span style="font-size:11px;color:#999">⚙</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>暗色基调（当前方向）</h3>
+      <p>深灰面板 + 半透明按钮 + 白图标。对比度高，放在任何桌面背景下都不突兀，也符合快捷工具“暗色浮层”的直觉。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="light" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#d0d0d0;padding:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:200px">
+      <div style="width:170px;background:rgba(255,255,255,0.96);border-radius:14px;box-shadow:0 10px 36px rgba(0,0,0,0.18);padding:12px 14px 14px;border:1px solid rgba(0,0,0,0.06)">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px">
+          <div style="aspect-ratio:1;background:#f5f5f5;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(0,0,0,0.05)"><span style="font-size:17px;color:#333">✎</span><span style="font-size:9px;color:#555">记事</span></div>
+          <div style="aspect-ratio:1;background:#f5f5f5;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(0,0,0,0.05)"><span style="font-size:17px;color:#333">⚙</span><span style="font-size:9px;color:#555">设置</span></div>
+          <div style="aspect-ratio:1;background:#f5f5f5;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(0,0,0,0.05)"><span style="font-size:17px;color:#333">📁</span><span style="font-size:9px;color:#555">文件</span></div>
+          <div style="aspect-ratio:1;background:#f5f5f5;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(0,0,0,0.05)"><span style="font-size:17px;color:#333">🔍</span><span style="font-size:9px;color:#555">搜索</span></div>
+          <div style="aspect-ratio:1;background:#f5f5f5;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(0,0,0,0.05)"><span style="font-size:17px;color:#333">🌐</span><span style="font-size:9px;color:#555">浏览器</span></div>
+        </div>
+        <div style="border-top:1px solid rgba(0,0,0,0.08);margin-top:10px;padding-top:7px;display:flex;justify-content:flex-end"><span style="font-size:11px;color:#888">⚙</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>浅色基调</h3>
+      <p>白色面板 + 浅灰按钮 + 深图标。更明亮、现代，适合浅色桌面主题，但出现在深色应用上方时可能刺眼。</p>
+    </div>
+  </div>
+</div>
