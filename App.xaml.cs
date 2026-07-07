@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Forms;
+using System.Windows.Threading;
 using MyQuicker.Domain.DTO;
 using MyQuicker.Domain.Runtime;
 using MyQuicker.Interop;
@@ -64,13 +65,53 @@ public partial class App : Application
         _bootstrapper.MainWindow.Opacity = 0;
         _bootstrapper.MainWindow.Show();
 
-        _bootstrapper.RawInputSource.Start();
-
         InitializeTray();
 
         // 启动 toast：主窗口无任务栏入口，需明确告知已启动 + 提示当前唤醒方式。
         string hint = GetWakeupHint(settings.TriggerBindings.FirstOrDefault());
-        Toast.Show($"MyQuicker 已启动 · {hint}唤醒");
+        Toast.Show($"aurora 已启动 · {hint}唤醒");
+
+        // 低级鼠标钩子挂载时机（防全局鼠标卡死）：
+        // WH_MOUSE_LL 回调在安装线程的消息循环里 dispatch。若钩子在托盘注册
+        // （Shell_NotifyIcon 与 explorer 同步通信）与 Toast 渲染之前挂载，这些
+        // 主线程同步耗时会让回调排队超时（LowLevelHooksTimeout，默认 300ms），
+        // 触发全局鼠标卡死。故物理后移到启动收尾之后，并用 Dispatcher 闲置优先级
+        // 派发，强制推迟到下一帧消息循环 Pump 完所有积压 UI 消息、主线程回归静默
+        // 后再激活钩子。
+        Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+        {
+            _bootstrapper.RawInputSource.Start();
+        }), DispatcherPriority.Background);
+
+#if !DEBUG
+        // 后台检查更新（非阻塞）：发现新版弹框，用户同意后下载 MSI 静默升级。
+        _ = CheckForUpdatesAsync();
+#endif
+    }
+
+    /// <summary>后台检查 GitHub Releases 更新；发现新版提示用户升级。</summary>
+    private async Task CheckForUpdatesAsync()
+    {
+        try
+        {
+            var checker = new UpdateChecker();
+            var info = await checker.CheckAsync().ConfigureAwait(false);
+            if (info is null) return;
+
+            await Dispatcher.InvokeAsync(() =>
+            {
+                if (System.Windows.MessageBox.Show(
+                        $"发现新版本 {info.Version}，是否立即更新？",
+                        "MyQuicker 更新", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                {
+                    _ = checker.ApplyAsync(info);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[Update] check failed: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -94,7 +135,7 @@ public partial class App : Application
         _notifyIcon = new NotifyIcon
         {
             Icon = SystemIcons.Application,
-            Text = "MyQuicker",
+            Text = "aurora",
             Visible = true,
         };
 
