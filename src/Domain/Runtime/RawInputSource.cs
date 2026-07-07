@@ -109,71 +109,90 @@ public sealed class RawInputSource : IDisposable
 
     private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
     {
-        if (nCode >= 0)
+        if (nCode < 0)
+            return NativeMethods.CallNextHookEx(_hookId, nCode, wParam, lParam);
+
+        // 原生回调必须极速返回（<100ms），否则 Windows 静默摘钩。
+        // 这里只做 Win32 解码与“吞键”同步返回；触发器评估与 UI 副作用统一在
+        // ProcessMouseMessage 内派发，便于不依赖 Win32 钩子地测试唤醒链路（见 KI-2）。
+        int msg = wParam.ToInt32();
+        var info = Marshal.PtrToStructure<NativeMethods.MSLLHOOKSTRUCT>(lParam);
+        POINT pt = info.pt;
+        int? xButton = msg == NativeMethods.WM_XBUTTONDOWN ? (int?)(info.mouseData >> 16) : null;
+
+        bool swallow = ProcessMouseMessage(msg, pt, _timeProvider.MonotonicTimestamp, xButton);
+        return swallow ? (IntPtr)1 : NativeMethods.CallNextHookEx(_hookId, nCode, wParam, lParam);
+    }
+
+    /// <summary>
+    /// 把解码后的鼠标消息派发给触发器评估与外部事件，返回是否应吞掉该输入（不传递给前台）。
+    /// 抽出为 internal 以便直接测试唤醒派发链路，无需安装 Win32 钩子。
+    /// </summary>
+    internal bool ProcessMouseMessage(int msg, POINT pt, long timestamp, int? xButton)
+    {
+        // 纯轨迹画圈：旁观 WM_MOUSEMOVE，永不拦截（返回 false），保证鼠标移动绝对流畅。
+        // 画圈判定需要 MouseMove 事件流——同步喂给 TriggerEvaluator（与 MouseDown 路径一致），
+        // 匹配则把 WakeContext 投递到 UI 线程。修复 KI-2（EventReceived 未订阅导致画圈失效）。
+        if (msg == NativeMethods.WM_MOUSEMOVE)
         {
-            int msg = wParam.ToInt32();
-
-            // 纯轨迹画圈：旁观 WM_MOUSEMOVE，永不拦截（始终 CallNextHookEx），保证鼠标移动绝对流畅。
-            if (msg == NativeMethods.WM_MOUSEMOVE)
-            {
-                var info = Marshal.PtrToStructure<NativeMethods.MSLLHOOKSTRUCT>(lParam);
-                PostEvent(new TriggerEvent(
-                    TriggerEventType.MouseMove,
-                    new Point(info.pt.X, info.pt.Y),
-                    _timeProvider.MonotonicTimestamp));
-                return NativeMethods.CallNextHookEx(_hookId, nCode, wParam, lParam);
-            }
-
-            bool isTrackedDown = msg is NativeMethods.WM_LBUTTONDOWN or NativeMethods.WM_RBUTTONDOWN
-                or NativeMethods.WM_NCLBUTTONDOWN or NativeMethods.WM_MBUTTONDOWN
-                or NativeMethods.WM_XBUTTONDOWN;
-
-            if (isTrackedDown)
-            {
-                var info = Marshal.PtrToStructure<NativeMethods.MSLLHOOKSTRUCT>(lParam);
-                POINT pt = info.pt;
-
-                // 原生回调必须极速返回（<100ms），否则 Windows 静默摘钩。
-                // UI 变化一律抛到同步上下文异步执行；仅“吞键”同步返回。
-                var domainPoint = new Point(pt.X, pt.Y);
-                _sync.Post(() => AnyMouseDown?.Invoke(this, domainPoint));
-
-                int? xButton = msg == NativeMethods.WM_XBUTTONDOWN ? (int?)(info.mouseData >> 16) : null;
-                var ev = new TriggerEvent(
-                    TriggerEventType.MouseDown,
-                    new Point(pt.X, pt.Y),
-                    _timeProvider.MonotonicTimestamp,
-                    msg,
-                    xButton);
-
-                bool matched = EvaluateAndMaybeSwallow(ev);
-
-                // 是否吞掉唤醒键（不传递给前台应用）由拦截策略决定。
-                if (matched)
-                    return (IntPtr)1; // 同步吞掉唤醒键，立即返回
-                return NativeMethods.CallNextHookEx(_hookId, nCode, wParam, lParam);
-            }
+            var ev = new TriggerEvent(
+                TriggerEventType.MouseMove,
+                new Point(pt.X, pt.Y),
+                timestamp);
+            EvaluateAndPostWake(ev);
+            PostEvent(ev);
+            return false;
         }
 
-        return NativeMethods.CallNextHookEx(_hookId, nCode, wParam, lParam);
+        bool isTrackedDown = msg is NativeMethods.WM_LBUTTONDOWN or NativeMethods.WM_RBUTTONDOWN
+            or NativeMethods.WM_NCLBUTTONDOWN or NativeMethods.WM_MBUTTONDOWN
+            or NativeMethods.WM_XBUTTONDOWN;
+
+        if (!isTrackedDown)
+            return false;
+
+        var domainPoint = new Point(pt.X, pt.Y);
+        _sync.Post(() => AnyMouseDown?.Invoke(this, domainPoint));
+
+        var downEv = new TriggerEvent(
+            TriggerEventType.MouseDown,
+            new Point(pt.X, pt.Y),
+            timestamp,
+            msg,
+            xButton);
+
+        return EvaluateAndMaybeSwallow(downEv);
     }
 
     private bool EvaluateAndMaybeSwallow(TriggerEvent ev)
     {
+        var ctx = EvaluateAndPostWake(ev);
+        return ctx is not null && _interceptionPolicy?.ShouldIntercept(ctx) == true;
+    }
+
+    /// <summary>
+    /// 评估事件；若匹配则把 <see cref="WakeContext"/> 投递到同步上下文（UI 线程）。
+    /// MouseDown 路径用于唤醒并决定是否吞键；MouseMove 路径用于画圈等轨迹触发器。
+    /// </summary>
+    /// <returns>匹配到的 WakeContext，或 null。</returns>
+    internal WakeContext? EvaluateAndPostWake(TriggerEvent ev)
+    {
         var result = _triggerEvaluator.Evaluate(ev);
         if (!result.IsMatch || result.Context is null)
-            return false;
+            return null;
 
-        _sync.Post(() => WakeContextReceived?.Invoke(this, result.Context));
-
-        if (_interceptionPolicy?.ShouldIntercept(result.Context) == true)
-            return true;
-
-        return false;
+        var ctx = result.Context;
+        _sync.Post(() => WakeContextReceived?.Invoke(this, ctx));
+        return ctx;
     }
 
     private void PostEvent(TriggerEvent ev)
     {
+        // EventReceived 当前无订阅者（画圈评估走 EvaluateAndPostWake）；无订阅时跳过，
+        // 避免每次 MouseMove 都排队一个无用闭包。保留事件本身作为原始输入流观察 seam。
+        if (EventReceived is null)
+            return;
+
         _sync.Post(() => EventReceived?.Invoke(this, ev));
     }
 
