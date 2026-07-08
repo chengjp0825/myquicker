@@ -198,11 +198,13 @@ internal sealed class SettingsManager
         catch (JsonException)
         {
             await Task.Run(() => BackupCorruptFile(path)).ConfigureAwait(false);
-            return new Settings();
+            // KI-4：损坏回退默认配置（含默认触发器+动作），而非空 Settings 导致唤醒瘫痪。
+            return await Task.Run(CreateDefaultSettings).ConfigureAwait(false);
         }
         catch
         {
-            return new Settings();
+            // KI-4：其他读取异常同样回退默认，保证唤醒链路可用。
+            return await Task.Run(CreateDefaultSettings).ConfigureAwait(false);
         }
     }
 
@@ -217,11 +219,13 @@ internal sealed class SettingsManager
         catch (JsonException)
         {
             BackupCorruptFile(path);
-            return new Settings();
+            // KI-4：损坏回退默认配置（含默认触发器+动作），而非空 Settings 导致唤醒瘫痪。
+            return CreateDefaultSettings();
         }
         catch
         {
-            return new Settings();
+            // KI-4：其他读取异常同样回退默认，保证唤醒链路可用。
+            return CreateDefaultSettings();
         }
     }
 
