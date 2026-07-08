@@ -41,32 +41,35 @@
   - 手动：配置画圈触发器后画圈应能打开菜单（需退出当前运行中的 aurora 实例后重新运行确认）。
 - **状态**：已修复
 
-## KI-3：低级鼠标钩子回调无异常保护，任意异常杀死全局钩子 —— 待修复
+## KI-3：低级鼠标钩子回调无异常保护，任意异常杀死全局钩子 —— 已修复
 
 - **严重度**：High
 - **报告**：2026-07-07（对抗式审查 · 业务轴 H-1）
 - **涉及**：`src/Domain/Runtime/RawInputSource.cs:110-159`
 - **现象**：`WH_MOUSE_LL` 回调跑在 UI 线程消息循环；`HookCallback` 无 try/catch，`Marshal.PtrToStructure` / 同步 `Evaluate` / `_sync.Post` 任一抛异常都会冒出原生回调，Windows 移除低级钩子或 CLR 终止，全部唤醒输入静默死亡、无日志、无恢复。`App_DispatcherUnhandledException` 对非安全异常 `e.Handled=false` 仍崩溃。
 - **修复方向**：`nCode >= 0` 主体包 try/catch，`Debug.WriteLine` 后始终落到 `CallNextHookEx`。
-- **状态**：待修复
+- **修复时间**：2026-07-07。
+- **状态**：已修复（`dotnet test` 154 通过）
 
-## KI-4：损坏 settings.json 恢复返回空 Settings，唤醒瘫痪 —— 待修复
+## KI-4：损坏 settings.json 恢复返回空 Settings，唤醒瘫痪 —— 已修复
 
 - **严重度**：High
 - **报告**：2026-07-07（对抗式审查 · 业务轴 H-2）
 - **涉及**：`Services/SettingsManager.cs:198-206,210-226`
 - **现象**：`JsonException` → `BackupCorruptFile` → `return new Settings()`，`TriggerBindings`/`MenuGroups` 均空；`Load()` 此路径不调 `CreateDefaultSettings()`。损坏后首次启动零触发器+空菜单，违反“默认常驻动作”契约。
 - **修复方向**：`JsonException` 分支返回 `CreateDefaultSettings()`（或至少种入默认触发器）。
-- **状态**：待修复
+- **修复时间**：2026-07-07。
+- **状态**：已修复（`dotnet test` 154 通过）
 
-## KI-5：内建 sys:* 命令 ID 可被用户配置覆盖 —— 待修复
+## KI-5：内建 sys:* 命令 ID 可被用户配置覆盖 —— 已修复
 
 - **严重度**：High
 - **报告**：2026-07-07（对抗式审查 · 业务轴 H-3）
 - **涉及**：`Services/UserCommandStore.cs:14-32`、`src/Domain/Runtime/Commands/CommandRegistry.cs:17-25`
 - **现象**：`CommandRegistry.Register` 直接 `_commands[key]=command`（静默覆盖）；`UserCommandStore` 无 `sys:` 前缀过滤。用户 `Id="sys:snipping"` `Target="evil.exe"` 会替换内建 `SnippingCommand`。违反 `CONTEXT.md` “拒绝覆盖内建命令 ID”。
 - **修复方向**：`UserCommandStore.Register` 跳过 `sys:` 前缀项；或 `CommandRegistry` 在内建注册后拒绝 `sys:` 键。
-- **状态**：待修复
+- **修复时间**：2026-07-07。
+- **状态**：已修复（采用前者：`UserCommandStore.Register` 跳过 `sys:` 前缀项并 `Debug.WriteLine` 记日志；`dotnet test` 154 通过）
 
 ## KI-6：ScreenshotCaptureService 捕获失败时 Bitmap 泄漏 GDI+ 句柄 —— 待修复
 
