@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Aurora.Domain.DTO;
 using Aurora.Domain.Runtime.Commands;
 
@@ -22,6 +23,14 @@ public static class UserCommandStore
         {
             if (string.IsNullOrWhiteSpace(command.Id))
                 continue;
+
+            // KI-5：拒绝用户配置覆盖内建 sys:* 命令 ID。sys:* 由 BuiltInCommandProvider 注册，
+            // 用户配置里的同名项跳过（不注册、不覆盖）。ActionItem.CommandId 仍可指向 sys:*（查找走内建）。
+            if (command.Id.StartsWith("sys:", StringComparison.Ordinal))
+            {
+                Debug.WriteLine($"[UserCommandStore] 跳过用户命令 '{command.Id}'：sys:* 前缀保留给内建命令，禁止覆盖。");
+                continue;
+            }
 
             ICommand runtimeCommand = command.Type switch
             {
