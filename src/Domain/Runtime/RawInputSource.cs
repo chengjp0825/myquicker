@@ -115,13 +115,23 @@ public sealed class RawInputSource : IDisposable
         // 原生回调必须极速返回（<100ms），否则 Windows 静默摘钩。
         // 这里只做 Win32 解码与“吞键”同步返回；触发器评估与 UI 副作用统一在
         // ProcessMouseMessage 内派发，便于不依赖 Win32 钩子地测试唤醒链路（见 KI-2）。
-        int msg = wParam.ToInt32();
-        var info = Marshal.PtrToStructure<NativeMethods.MSLLHOOKSTRUCT>(lParam);
-        POINT pt = info.pt;
-        int? xButton = msg == NativeMethods.WM_XBUTTONDOWN ? (int?)(info.mouseData >> 16) : null;
+        // KI-3：原生回调里任意异常若冒出，Windows 会静默摘钩（全部唤醒输入死亡且无日志），
+        // 或触发 CLR 未处理异常终止进程。兜底 try/catch：记日志后始终放行（不吞键），保住钩子存活。
+        try
+        {
+            int msg = wParam.ToInt32();
+            var info = Marshal.PtrToStructure<NativeMethods.MSLLHOOKSTRUCT>(lParam);
+            POINT pt = info.pt;
+            int? xButton = msg == NativeMethods.WM_XBUTTONDOWN ? (int?)(info.mouseData >> 16) : null;
 
-        bool swallow = ProcessMouseMessage(msg, pt, _timeProvider.MonotonicTimestamp, xButton);
-        return swallow ? (IntPtr)1 : NativeMethods.CallNextHookEx(_hookId, nCode, wParam, lParam);
+            bool swallow = ProcessMouseMessage(msg, pt, _timeProvider.MonotonicTimestamp, xButton);
+            return swallow ? (IntPtr)1 : NativeMethods.CallNextHookEx(_hookId, nCode, wParam, lParam);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[HookCallback] exception swallowed to keep hook alive: {ex.GetType().Name}: {ex.Message}");
+            return NativeMethods.CallNextHookEx(_hookId, nCode, wParam, lParam);
+        }
     }
 
     /// <summary>
