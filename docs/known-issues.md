@@ -125,50 +125,55 @@
 - **修复方向**：阈值提到 ~2-3s，或在 post 时捕获 `now` 传入。
 - **状态**：待修复
 
-## KI-12：唤醒菜单无键盘处理（Esc/Enter/方向键）—— 待修复
+## KI-12：唤醒菜单无键盘处理（Esc/Enter/方向键）—— 已修复
 
 - **严重度**：High
 - **报告**：2026-07-07（对抗式审查 · UX 轴 H-1）
 - **涉及**：`UI/MainWindow.xaml.cs`（整文件）、`UI/MainWindow.xaml`
 - **现象**：无 `KeyDown`/`PreviewKeyDown`/`Esc` 处理器；菜单只能点动作/外部/齿轮关闭。窗口 `WS_EX_NOACTIVATE` 不获键盘焦点，`PreviewKeyDown` 可能不触发。
 - **修复方向**：`MainWindow` 加 `PreviewKeyDown`：Esc→`RaiseDismissRequested()`、Enter→激活聚焦按钮、可选方向键；唤醒时给临时焦点或挂键盘钩子。
-- **状态**：待修复
+- **修复时间**：2026-07-07。
+- **状态**：已修复（低级键盘钩子 WH_KEYBOARD_LL，Esc/Enter/方向键；dotnet test 154 通过）
 
-## KI-13：Alt-Tab/失活不关闭菜单，topmost 菜单滞留新前台之上 —— 待修复
+## KI-13：Alt-Tab/失活不关闭菜单，topmost 菜单滞留新前台之上 —— 已修复
 
 - **严重度**：High
 - **报告**：2026-07-07（对抗式审查 · UX 轴 H-2）
 - **涉及**：`UI/MainWindow.xaml.cs`
 - **现象**：无 `Deactivated` 处理；Alt-Tab/Win+D/点任务栏不产生 hook 能及时识别为“外部”的 mousedown，topmost 菜单一直盖新前台窗口。
 - **修复方向**：订阅 `Deactivated` → `RaiseDismissRequested()`。
-- **状态**：待修复
+- **修复时间**：2026-07-07。
+- **状态**：已修复（SetWinEventHook 监听前台变化；dotnet test 154 通过）
 
-## KI-14：菜单内容相对光标偏移 12px，贴边时最后 12px 被裁 —— 待修复
+## KI-14：菜单内容相对光标偏移 12px，贴边时最后 12px 被裁 —— 已修复
 
 - **严重度**：High
 - **报告**：2026-07-07（对抗式审查 · UX 轴 H-3）
 - **涉及**：`src/Domain/Runtime/WakeOrchestrator.cs:59,142`、`UI/MainWindow.xaml:27-28`、`UI/MainWindow.xaml.cs:187-188`
 - **现象**：`ClampToScreen` 用 `MenuWidth`（内容宽）算 `left=dipX-halfW`，但 `MainWindow.Width=menu.Width+24` 且 `RootBorder Margin=12`——窗口左边在内容左 12px，内容中心=`dipX+12`；且 `left+MenuWidth<=screenRight` 保证内容右边可达 `screenRight+12`，贴右/下边唤醒时最后一列/底栏被裁 12px。
 - **修复方向**：`WakeUp` 设 `Left=location.X-12`，或 `ClampToScreen` 用 `MenuWidth+24`/`MenuHeight+24` 并偏移 12。
-- **状态**：待修复
+- **修复时间**：2026-07-07。
+- **状态**：已修复（采用前者：`WakeUp` 设 `Left=location.X-12`、`Top=location.Y-12`，窗口左移 12 使内容中心对齐光标且贴边不裁；`dotnet test` 154 通过）
 
-## KI-15：ScreenshotWindow.OnMouseMove 无异常保护，放大镜路径异常崩溃应用 —— 待修复
+## KI-15：ScreenshotWindow.OnMouseMove 无异常保护，放大镜路径异常崩溃应用 —— 已修复
 
 - **严重度**：High
 - **报告**：2026-07-07（对抗式审查 · UX 轴 H-4）
 - **涉及**：`UI/ScreenshotWindow.xaml.cs:280-360`
 - **现象**：`UpdateMagnifierLoupe` 每次 mousemove 分配 `CroppedBitmap`+`CopyPixels`；`_baseImage` 状态异常（`OnClosed` 竞态）抛异常 → `App.DispatcherUnhandledException` `e.Handled=false` → 进程终止，`ClipCursor` 仍激活。
 - **修复方向**：放大镜主体包 try/catch，降级隐藏 loupe。
-- **状态**：待修复
+- **修复时间**：2026-07-07。
+- **状态**：已修复（`UpdateMagnifierLoupe` 整体包 try/catch，异常时 `Debug.WriteLine` + 隐藏 loupe，不崩进程；`dotnet test` 154 通过）
 
-## KI-16：菜单 Opening/Visible/Closing 期间二次唤醒被静默忽略 —— 待修复
+## KI-16：菜单 Opening/Visible/Closing 期间二次唤醒被静默忽略 —— 已修复
 
 - **严重度**：High
 - **报告**：2026-07-07（对抗式审查 · UX 轴 H-5）
 - **涉及**：`src/Domain/Runtime/WakeOrchestrator.cs:59`
 - **现象**：`OnWakeContext` 在 `State!=Hidden` 时直接 return；开启 150ms+关闭 120ms=270ms 内新位置二次触发无反馈。双击中键或“以为没反应”再触发什么也得不到。
 - **修复方向**：`Visible` 态允许 `Dismiss()` 后在新位置重显，或直接 `ShowAt` 重锚。
-- **状态**：待修复（注：`WakeOrchestratorTests` 断言“可见态忽略二次唤醒”为有意；本条记录该设计的 UX 缺陷，需产品决策是否调整。）
+- **修复时间**：2026-07-07。
+- **状态**：已修复（采用 ShowAt 重锚：`OnWakeContext` Visible 态直接 `ShowAt`（跳过防抖），`MainWindow.WakeUp` 已可见时瞬移不重放动画；`WakeOrchestratorTests` 断言已更新；`dotnet test` 154 通过）
 
 ## KI-17：异步保存期间手动关窗跳过运行时重建 —— 待修复
 
