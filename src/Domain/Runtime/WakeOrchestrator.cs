@@ -56,9 +56,6 @@ public sealed class WakeOrchestrator
     /// <summary>处理触发器匹配成功后的唤醒上下文。</summary>
     public void OnWakeContext(WakeContext context)
     {
-        if (State != MenuState.Hidden)
-            return;
-
         if (_blockPolicy.IsBlocked())
             return;
 
@@ -67,10 +64,22 @@ public sealed class WakeOrchestrator
         if (IsStale(context.Timestamp, now))
             return;
 
+        var dipLocation = ClampToScreen(context.Location);
+
+        // KI-16：Visible 态二次唤醒直接 ShowAt 重锚到新位置（跳过防抖，用户意图明确换位置）。
+        // Opening/Closing 态仍忽略（动画进行中，重锚会冲突）。
+        if (State == MenuState.Visible)
+        {
+            _presenter.ShowAt(dipLocation);
+            _lastWakeTime = context.Timestamp;
+            return;
+        }
+
         if (IsDebounced(context.Timestamp))
             return;
 
-        var dipLocation = ClampToScreen(context.Location);
+        if (State != MenuState.Hidden)
+            return;
 
         _presenter.ShowAt(dipLocation);
         State = MenuState.Opening;

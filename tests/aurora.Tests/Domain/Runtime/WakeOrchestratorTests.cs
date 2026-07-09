@@ -62,7 +62,7 @@ public class WakeOrchestratorTests
     }
 
     [Fact]
-    public void OnWakeContext_WhenVisible_IgnoresReAwake()
+    public void OnWakeContext_WhenVisible_ReAnchorsToNewLocation()
     {
         var orch = CreateOrchestrator(out var presenter, out var screens, out var time, out _, out _);
         screens.AddScreen(new ScreenInfo(new ScreenBounds(0, 0, 1920, 1080), 1.0, 1.0));
@@ -72,7 +72,8 @@ public class WakeOrchestratorTests
 
         orch.OnWakeContext(new WakeContext(new Point(500, 500), time.MonotonicTimestamp, "MiddleButton"));
 
-        Assert.Single(presenter.ShowAtCalls);
+        // KI-16：Visible 态二次唤醒直接 ShowAt 重锚到新位置（跳过防抖，不再静默忽略）。
+        Assert.Equal(2, presenter.ShowAtCalls.Count);
         Assert.Equal(MenuState.Visible, orch.State);
     }
 

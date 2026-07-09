@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -45,6 +47,15 @@ public partial class MainWindow : Window, IMenuPresenter
 
     /// <summary>动作执行中，防止用户在菜单关闭动画期间重复点击其他按钮。</summary>
     private bool _actionExecutionInProgress;
+
+    // KI-12：低级键盘钩子（菜单可见时挂载，Esc/Enter/方向键）。
+    private IntPtr _keyboardHookId = IntPtr.Zero;
+    private NativeMethods.LowLevelKeyboardProc? _keyboardProc;
+    private int _focusedButtonIndex = -1;
+
+    // KI-13：WinEvent 钩子（常驻，监听前台变化，菜单可见时 Alt-Tab 触发 Dismiss）。
+    private IntPtr _foregroundHook = IntPtr.Zero;
+    private NativeMethods.WinEventProc? _winEventProc;
 
     /// <summary>
     /// 运行时构造函数：所有依赖由组合根注入，View 内部禁止自行构造服务。
@@ -176,6 +187,24 @@ public partial class MainWindow : Window, IMenuPresenter
         var hwnd = new WindowInteropHelper(this).Handle;
         int exStyle = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
         NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, exStyle | NativeMethods.WS_EX_NOACTIVATE);
+
+        // KI-13：挂载 WinEvent 钩子监听前台窗口变化（常驻）。菜单可见时 Alt-Tab/Win+D 触发 Dismiss。
+        // WINEVENT_OUTOFCONTEXT：回调在挂载线程消息循环（主 UI 线程）；SKIPOWNPROCESS：跳过自身进程。
+        _winEventProc = OnForegroundChanged;
+        _foregroundHook = NativeMethods.SetWinEventHook(
+            NativeMethods.EVENT_SYSTEM_FOREGROUND,
+            NativeMethods.EVENT_SYSTEM_FOREGROUND,
+            IntPtr.Zero, _winEventProc, 0, 0,
+            NativeMethods.WINEVENT_OUTOFCONTEXT | NativeMethods.WINEVENT_SKIPOWNPROCESS);
+    }
+
+    /// <summary>KI-13：前台窗口变化时，若菜单可见则请求关闭（Alt-Tab/Win+D 不再滞留菜单）。</summary>
+    private void OnForegroundChanged(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+    {
+        if (!_isAwake)
+            return;
+        // 回调在主 UI 线程消息循环；防御性用 Dispatcher。
+        Dispatcher.BeginInvoke(() => RaiseDismissRequested());
     }
 
     /// <summary>
@@ -183,9 +212,14 @@ public partial class MainWindow : Window, IMenuPresenter
     /// </summary>
     private void WakeUp(DomainPoint location)
     {
-        // location 已由 WakeOrchestrator 计算为 DIP 且夹取到屏幕内。
-        Left = location.X;
-        Top = location.Y;
+        // location 是 WakeOrchestrator 夹取后的内容左上角 DIP（基于 MenuWidth 算）。
+        // KI-14：RootBorder Margin=12，窗口左 = 内容左 - 12，使内容中心对齐光标且贴边不裁。
+        Left = location.X - 12;
+        Top = location.Y - 12;
+
+        // KI-16：已可见时二次唤醒，仅瞬移位置，不重放动画（避免闪）。
+        if (_isAwake)
+            return;
 
         // 清除可能残留的动画，确保每次从初始状态开始
         _isClosing = false;
@@ -198,6 +232,10 @@ public partial class MainWindow : Window, IMenuPresenter
         scale.ScaleY = 0.95;
         Opacity = 0;
         _isAwake = true;
+
+        // KI-12：挂载键盘钩子（菜单可见时拦 Esc/Enter/方向键）+ 聚焦第一个按钮。
+        EnsureKeyboardHookMounted();
+        Dispatcher.BeginInvoke(new Action(FocusFirstButton), System.Windows.Threading.DispatcherPriority.Background);
 
         var storyboard = BuildOpenStoryboard();
         storyboard.Completed += (_, _) => _opened?.Invoke(this, EventArgs.Empty);
@@ -232,6 +270,9 @@ public partial class MainWindow : Window, IMenuPresenter
             Top = -9999;
             _isAwake = false;
             _isClosing = false;
+
+            // KI-12：菜单关闭后卸载键盘钩子（仅在菜单可见时才监听键盘）。
+            EnsureKeyboardHookUnmounted();
 
             _closed?.Invoke(this, EventArgs.Empty);
         };
@@ -403,5 +444,155 @@ public partial class MainWindow : Window, IMenuPresenter
         storyboard.Children.Add(scaleYAnimation);
 
         return storyboard;
+    }
+
+    // -----------------------------------------------------------------------
+    // KI-12/KI-13 钩子清理
+    // -----------------------------------------------------------------------
+
+    /// <summary>窗口关闭时清理所有钩子（KI-12 键盘 + KI-13 WinEvent）。</summary>
+    protected override void OnClosed(EventArgs e)
+    {
+        EnsureKeyboardHookUnmounted();
+        if (_foregroundHook != IntPtr.Zero)
+        {
+            NativeMethods.UnhookWinEvent(_foregroundHook);
+            _foregroundHook = IntPtr.Zero;
+            _winEventProc = null;
+        }
+        base.OnClosed(e);
+    }
+
+    // ---------------- KI-12 键盘钩子 ----------------
+
+    private void EnsureKeyboardHookMounted()
+    {
+        if (_keyboardHookId != IntPtr.Zero)
+            return;
+        _keyboardProc = KeyboardHookCallback;
+        using var process = Process.GetCurrentProcess();
+        var mainModule = process.MainModule
+            ?? throw new InvalidOperationException("Could not obtain the process main module.");
+        IntPtr hMod = NativeMethods.GetModuleHandle(mainModule.ModuleName);
+        _keyboardHookId = NativeMethods.SetWindowsHookEx(NativeMethods.WH_KEYBOARD_LL, _keyboardProc, hMod, 0);
+    }
+
+    private void EnsureKeyboardHookUnmounted()
+    {
+        if (_keyboardHookId == IntPtr.Zero)
+            return;
+        NativeMethods.UnhookWindowsHookEx(_keyboardHookId);
+        _keyboardHookId = IntPtr.Zero;
+        _keyboardProc = null;
+    }
+
+    private IntPtr KeyboardHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        if (nCode < 0)
+            return NativeMethods.CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
+
+        // KI-3 同款异常保护：原生回调异常会摘钩，兜底放行。
+        try
+        {
+            if (!_isAwake)
+                return NativeMethods.CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
+
+            int msg = wParam.ToInt32();
+            if (msg != NativeMethods.WM_KEYDOWN && msg != NativeMethods.WM_SYSKEYDOWN)
+                return NativeMethods.CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
+
+            var info = Marshal.PtrToStructure<NativeMethods.KBDLLHOOKSTRUCT>(lParam);
+            int vk = info.vkCode;
+
+            bool handled = false;
+            if (vk == NativeMethods.VK_ESCAPE)
+            {
+                Dispatcher.BeginInvoke(() => RaiseDismissRequested());
+                handled = true;
+            }
+            else if (vk == NativeMethods.VK_RETURN)
+            {
+                Dispatcher.BeginInvoke(() => GetFocusedButton()?.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)));
+                handled = true;
+            }
+            else if (vk == NativeMethods.VK_LEFT)
+            {
+                Dispatcher.BeginInvoke(() => MoveFocusedButton(-1));
+                handled = true;
+            }
+            else if (vk == NativeMethods.VK_RIGHT)
+            {
+                Dispatcher.BeginInvoke(() => MoveFocusedButton(1));
+                handled = true;
+            }
+            else if (vk == NativeMethods.VK_UP)
+            {
+                int cols = Math.Clamp(_preferences.Menu.GridColumns, 2, 3);
+                Dispatcher.BeginInvoke(() => MoveFocusedButton(-cols));
+                handled = true;
+            }
+            else if (vk == NativeMethods.VK_DOWN)
+            {
+                int cols = Math.Clamp(_preferences.Menu.GridColumns, 2, 3);
+                Dispatcher.BeginInvoke(() => MoveFocusedButton(cols));
+                handled = true;
+            }
+
+            return handled ? (IntPtr)1 : NativeMethods.CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[KeyboardHook] exception swallowed: {ex.GetType().Name}: {ex.Message}");
+            return NativeMethods.CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
+        }
+    }
+
+    /// <summary>聚焦第一个动作按钮（键盘导航起点）。容器生成后调用。</summary>
+    private void FocusFirstButton()
+    {
+        _focusedButtonIndex = 0;
+        FocusButton(_focusedButtonIndex);
+    }
+
+    private void FocusButton(int index)
+    {
+        if (index < 0 || index >= ActionsControl.Items.Count)
+            return;
+        _focusedButtonIndex = index;
+        var container = ActionsControl.ItemContainerGenerator.ContainerFromIndex(index);
+        var button = container is null ? null : FindVisualChild<Button>(container);
+        button?.Focus();
+    }
+
+    private void MoveFocusedButton(int delta)
+    {
+        if (_focusedButtonIndex < 0)
+        {
+            FocusFirstButton();
+            return;
+        }
+        int newIndex = _focusedButtonIndex + delta;
+        newIndex = Math.Clamp(newIndex, 0, Math.Max(0, ActionsControl.Items.Count - 1));
+        FocusButton(newIndex);
+    }
+
+    private Button? GetFocusedButton()
+    {
+        if (_focusedButtonIndex < 0 || _focusedButtonIndex >= ActionsControl.Items.Count)
+            return null;
+        var container = ActionsControl.ItemContainerGenerator.ContainerFromIndex(_focusedButtonIndex);
+        return container is null ? null : FindVisualChild<Button>(container);
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T t) return t;
+            var result = FindVisualChild<T>(child);
+            if (result is not null) return result;
+        }
+        return null;
     }
 }

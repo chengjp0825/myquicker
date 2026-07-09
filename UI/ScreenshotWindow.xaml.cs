@@ -518,6 +518,10 @@ public partial class ScreenshotWindow : Window
     /// <summary>实时更新放大镜：以鼠标物理像素为中心裁出动态源区域，NearestNeighbor 放大显示。</summary>
     private void UpdateMagnifierLoupe(Point mouseDip)
     {
+        // KI-15：放大镜路径异常（如 OnClosed 竞态导致 _baseImage 状态不一致）降级隐藏 loupe，
+        // 避免 DispatcherUnhandledException 不处理导致进程崩溃（ClipCursor 仍激活会更糟）。
+        try
+        {
         if (_baseImage is null || _baseImage.PixelWidth == 0 || _baseImage.PixelHeight == 0)
             return;
 
@@ -561,6 +565,12 @@ public partial class ScreenshotWindow : Window
         MagnifierColorText.Text = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
 
         PositionLoupe(mouseDip);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[Magnifier] UpdateMagnifierLoupe exception, hiding loupe: {ex.GetType().Name}: {ex.Message}");
+            MagnifierLoupe.Visibility = Visibility.Collapsed;
+        }
     }
 
     /// <summary>
